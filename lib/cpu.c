@@ -6,6 +6,8 @@ cpu_context ctx = {0};
 
 void cpu_init()
 {
+    // 0x100 是游戏程序的入口点
+    ctx.regs.pc = 0x100;
 }
 
 static void fetch_instruction()
@@ -60,6 +62,7 @@ static void fetch_data()
 
 static void execute()
 {
+    printf("Executing Instruction: %02X   PC: %04X\n", ctx.cur_opcode, ctx.regs.pc);
 }
 
 bool cpu_step()
