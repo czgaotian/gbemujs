@@ -1,0 +1,14 @@
+{
+  "files.associations": {
+    "*.ejs": "html",
+    ".eslintrc": "json",
+    "instructions.h": "c",
+    "cmath": "c",
+    "compare": "c",
+    "concepts": "c",
+    "type_traits": "c",
+    "limits": "c",
+    "new": "c",
+    "typeinfo": "c"
+  }
+}

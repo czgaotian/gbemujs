@@ -1,6 +1,7 @@
 #include <cart.h>
 
-typedef struct {
+typedef struct
+{
     char filename[1024];
     u32 rom_size;
     u8 *rom_data;
@@ -108,31 +109,36 @@ static const char *LIC_CODE[0xA5] = {
     [0x96] = "Yonezawa/s’pal",
     [0x97] = "Kaneko",
     [0x99] = "Pack in soft",
-    [0xA4] = "Konami (Yu-Gi-Oh!)"
-};
+    [0xA4] = "Konami (Yu-Gi-Oh!)"};
 
-const char *cart_lic_name() {
-    if (ctx.header->new_lic_code <= 0xA4) {
+const char *cart_lic_name()
+{
+    if (ctx.header->new_lic_code <= 0xA4)
+    {
         return LIC_CODE[ctx.header->lic_code];
     }
 
     return "UNKNOWN";
 }
 
-const char *cart_type_name() {
-    if (ctx.header->type <= 0x22) {
+const char *cart_type_name()
+{
+    if (ctx.header->type <= 0x22)
+    {
         return ROM_TYPES[ctx.header->type];
     }
 
     return "UNKNOWN";
 }
 
-bool cart_load(char *cart) {
+bool cart_load(char *cart)
+{
     snprintf(ctx.filename, sizeof(ctx.filename), "%s", cart);
 
     FILE *fp = fopen(cart, "r");
 
-    if (!fp) {
+    if (!fp)
+    {
         printf("Failed to open: %s\n", cart);
         return false;
     }
@@ -160,11 +166,25 @@ bool cart_load(char *cart) {
     printf("\t ROM Vers : %2.2X\n", ctx.header->version);
 
     u16 x = 0;
-    for (u16 i=0x0134; i<=0x014C; i++) {
+    for (u16 i = 0x0134; i <= 0x014C; i++)
+    {
         x = x - ctx.rom_data[i] - 1;
     }
 
     printf("\t Checksum : %2.2X (%s)\n", ctx.header->checksum, (x & 0xFF) ? "PASSED" : "FAILED");
 
     return true;
+}
+
+u8 cart_read(u16 address)
+{
+    // for now just ROM ONLY type supported ..
+
+    return ctx.rom_data[address];
+}
+
+void cart_write(u16 address, u8 value)
+{
+
+    NO_IMPL;
 }
