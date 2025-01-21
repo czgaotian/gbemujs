@@ -110,13 +110,12 @@ typedef enum
 
 typedef struct
 {
-  in_type type;   // 指令类型（如 NOP、LD、JP 等）
-  addr_mode mode; // 寻址模式（如立即寻址、寄存器寻址等）
-  reg_type reg_1; // 第一个寄存器操作数
-  reg_type reg_2; // 第二个寄存器操作数
-  cond_type cond; // 条件码（可能用于条件跳转等指令）
-  u8 param;       // 额外的参数
-
+  in_type type;
+  addr_mode mode;
+  reg_type reg_1;
+  reg_type reg_2;
+  cond_type cond;
+  u8 param;
 } instruction;
 
 instruction *instruction_by_opcode(u8 opcode);

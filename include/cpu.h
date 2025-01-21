@@ -13,25 +13,36 @@ typedef struct
   u8 e;
   u8 h;
   u8 l;
-  u16 pc; // Program Counter, 程序计数器, 指向下一条要执行的指令
-  u16 sp; // Stack Pointer, 堆栈指针, 指向当前堆栈顶部
+  u16 pc;
+  u16 sp;
 } cpu_registers;
 
 typedef struct
 {
   cpu_registers regs;
 
-  // current fetch
+  // current fetch...
   u16 fetched_data;
   u16 mem_dest;
-  bool dest_ist_mem;
+  bool dest_is_mem;
   u8 cur_opcode;
   instruction *cur_inst;
 
   bool halted;
   bool stepping;
 
+  bool int_master_enabled;
+
 } cpu_context;
 
 void cpu_init();
 bool cpu_step();
+
+typedef void (*IN_PROC)(cpu_context *);
+
+IN_PROC inst_get_processor(in_type type);
+
+#define CPU_FLAG_Z BIT(ctx->regs.f, 7)
+#define CPU_FLAG_C BIT(ctx->regs.f, 4)
+
+u16 cpu_read_reg(reg_type rt);
