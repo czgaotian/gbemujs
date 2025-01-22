@@ -25,7 +25,7 @@ typedef enum
   AM_MR,
   AM_A16_R,
   AM_R_A16
-} addr_mode;
+} addr_mode; // 寻址模式
 
 typedef enum
 {
@@ -44,7 +44,7 @@ typedef enum
   RT_HL,
   RT_SP,
   RT_PC
-} reg_type;
+} reg_type; // 寄存器类型
 
 typedef enum
 {
@@ -97,7 +97,7 @@ typedef enum
   IN_BIT,
   IN_RES,
   IN_SET
-} in_type;
+} in_type; // 指令类型
 
 typedef enum
 {

@@ -6,7 +6,7 @@
 typedef struct
 {
   u8 a;
-  u8 f;
+  u8 f; // 标志位寄存器
   u8 b;
   u8 c;
   u8 d;
@@ -46,3 +46,4 @@ IN_PROC inst_get_processor(in_type type);
 #define CPU_FLAG_C BIT(ctx->regs.f, 4)
 
 u16 cpu_read_reg(reg_type rt);
+void cpu_set_reg(reg_type rt, u16 val);

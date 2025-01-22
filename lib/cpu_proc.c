@@ -1,27 +1,8 @@
 #include <cpu.h>
 #include <emu.h>
+#include <bus.h>
 
 // processes CPU instructions...
-
-static void proc_none(cpu_context *ctx)
-{
-  printf("INVALID INSTRUCTION!\n");
-  exit(-7);
-}
-
-static void proc_nop(cpu_context *ctx)
-{
-}
-
-static void proc_di(cpu_context *ctx)
-{
-  ctx->int_master_enabled = false;
-}
-
-static void proc_ld(cpu_context *ctx)
-{
-  // TODO...
-}
 
 void cpu_set_flags(cpu_context *ctx, char z, char n, char h, char c)
 {
@@ -44,6 +25,67 @@ void cpu_set_flags(cpu_context *ctx, char z, char n, char h, char c)
   {
     BIT_SET(ctx->regs.f, 4, c);
   }
+}
+
+static void proc_none(cpu_context *ctx)
+{
+  printf("INVALID INSTRUCTION!\n");
+  exit(-7);
+}
+
+static void proc_nop(cpu_context *ctx)
+{
+}
+
+static void proc_di(cpu_context *ctx)
+{
+  ctx->int_master_enabled = false;
+}
+
+static void proc_ld(cpu_context *ctx)
+{
+  if (ctx->dest_is_mem) // 写入内存 (dest_is_mem 为 true)
+  {
+    // LD (BC), A for instance...
+    if (ctx->cur_inst->reg_2 >= RT_AF)
+    {
+      emu_cycles(1); // 16位数据写入，需要额外周期
+      bus_write16(ctx->mem_dest, ctx->fetched_data);
+    }
+    else
+    {
+      bus_write(ctx->mem_dest, ctx->fetched_data);
+    }
+
+    return;
+  }
+
+  /*
+  LD HL,SP+r8
+  这个指令将SP加上r8的结果存入HL寄存器。它会设置以下标志位:
+
+  零标志(Z)和负标志(N)被清零
+  半进位标志(H):低4位相加≥0x10时置1
+  进位标志(C):低8位相加≥0x100时置1
+  */
+  if (ctx->cur_inst->mode == AM_HL_SPR)
+  {
+    u8 hflag = (cpu_read_reg(ctx->cur_inst->reg_2) & 0xF) +
+                   (ctx->fetched_data & 0xF) >=
+               0x10;
+
+    u8 cflag = (cpu_read_reg(ctx->cur_inst->reg_2) & 0xFF) +
+                   (ctx->fetched_data & 0xFF) >=
+               0x100;
+
+    cpu_set_flags(ctx, 0, 0, hflag, cflag);
+    cpu_set_reg(ctx->cur_inst->reg_1,
+                cpu_read_reg(ctx->cur_inst->reg_2) + (char)ctx->fetched_data);
+
+    return;
+  }
+
+  cpu_set_reg(ctx->cur_inst->reg_1, ctx->fetched_data); // 普通寄存器加载
 }
 
 static void proc_xor(cpu_context *ctx)
