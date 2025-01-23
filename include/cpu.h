@@ -13,8 +13,8 @@ typedef struct
   u8 e;
   u8 h;
   u8 l;
-  u16 pc;
-  u16 sp;
+  u16 pc; // Program Counter, 程序计数器, 指向下一条要执行的指令
+  u16 sp; // Stack Pointer, 堆栈指针, 指向当前堆栈顶部
 } cpu_registers;
 
 typedef struct
@@ -31,10 +31,12 @@ typedef struct
   bool halted;
   bool stepping;
 
-  bool int_master_enabled;
+  bool int_master_enabled; //  CPU 中断主控制开关, 通常通过 IME 指令来控制
   u8 ie_register;
 
 } cpu_context;
+
+cpu_registers *cpu_get_registers();
 
 void cpu_init();
 bool cpu_step();

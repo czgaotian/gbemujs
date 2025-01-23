@@ -1,6 +1,7 @@
 #include <cpu.h>
 #include <emu.h>
 #include <bus.h>
+#include <stack.h>
 
 // processes CPU instructions...
 
@@ -130,13 +131,100 @@ static bool check_cond(cpu_context *ctx)
   return false;
 }
 
-static void proc_jp(cpu_context *ctx)
+static void goto_addr(cpu_context *ctx, u16 addr, bool pushpc)
 {
   if (check_cond(ctx))
   {
-    ctx->regs.pc = ctx->fetched_data;
+    if (pushpc)
+    {
+      emu_cycles(2);
+      stack_push16(ctx->regs.pc);
+    }
+    ctx->regs.pc = addr;
     emu_cycles(1);
   }
+}
+
+static void proc_jp(cpu_context *ctx)
+{
+  goto_addr(ctx, ctx->fetched_data, false);
+}
+
+static void proc_jr(cpu_context *ctx)
+{
+  // 直接转char以正确处理负数
+  char rel = (char)(ctx->fetched_data & 0xFF);
+  u16 addr = ctx->regs.pc + rel;
+  goto_addr(ctx, addr, false);
+}
+
+static void proc_call(cpu_context *ctx)
+{
+  goto_addr(ctx, ctx->fetched_data, true);
+}
+
+static void proc_rst(cpu_context *ctx)
+{
+  goto_addr(ctx, ctx->cur_inst->param, true);
+}
+
+static void proc_ret(cpu_context *ctx)
+{
+  if (ctx->cur_inst->cond != CT_NONE)
+  {
+    emu_cycles(1);
+  }
+
+  if (check_cond(ctx))
+  {
+    u16 lo = stack_pop();
+    emu_cycles(1);
+    u16 hi = stack_pop();
+    emu_cycles(1);
+
+    u16 n = (hi << 8) | lo;
+    ctx->regs.pc = n;
+
+    emu_cycles(1);
+  }
+}
+
+static void proc_reti(cpu_context *ctx)
+{
+  ctx->int_master_enabled = true;
+  proc_ret(ctx);
+}
+
+static void proc_pop(cpu_context *ctx)
+{
+  u16 hi = stack_pop();
+  emu_cycles(1);
+  u16 lo = stack_pop();
+  emu_cycles(1);
+
+  u16 val = (hi << 8) | lo;
+
+  cpu_set_reg(ctx->cur_inst->reg_1, val);
+
+  // AF寄存器中的F部分(低8位)是标志寄存器(Flag Register),其低4位总是为0
+  if (ctx->cur_inst->reg_1 == RT_AF)
+  {
+    cpu_set_reg(ctx->cur_inst->reg_1, val & 0xFFF0);
+  }
+}
+
+static void proc_push(cpu_context *ctx)
+{
+  u16 hi = (cpu_read_reg(ctx->cur_inst->reg_1) >> 8) & 0xFF;
+  emu_cycles(1);
+  stack_push(hi);
+
+  u16 lo = cpu_read_reg(ctx->cur_inst->reg_2) & 0xFF;
+  emu_cycles(1);
+  stack_push(lo);
+
+  // 第三个周期是指令本身的执行周期, 为了精确模拟原始硬件的时序特性
+  emu_cycles(1);
 }
 
 static IN_PROC processors[] = {
@@ -146,6 +234,13 @@ static IN_PROC processors[] = {
     [IN_LDH] = proc_ldh,
     [IN_JP] = proc_jp,
     [IN_DI] = proc_di,
+    [IN_POP] = proc_pop,
+    [IN_PUSH] = proc_push,
+    [IN_JR] = proc_jr,
+    [IN_CALL] = proc_call,
+    [IN_RST] = proc_rst,
+    [IN_RET] = proc_ret,
+    [IN_RETI] = proc_reti,
     [IN_XOR] = proc_xor};
 
 IN_PROC inst_get_processor(in_type type)
