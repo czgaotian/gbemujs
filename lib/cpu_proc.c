@@ -63,7 +63,7 @@ static void proc_cb(cpu_context *ctx)
   u8 op = ctx->fetched_data;
   reg_type reg = decode_reg(op & 0b111);
   u8 bit = (op >> 3) & 0b111;   // 被操作的位或移位操作类型
-  u8 bit_op = (op >> 6) & 0b11; // 操作类型
+  u8 bit_op = (op >> 6) & 0b11; // 操作类型（位测试、复位、置位或移位）
   u8 reg_val = cpu_read_reg8(reg);
 
   emu_cycles(1);
@@ -76,7 +76,7 @@ static void proc_cb(cpu_context *ctx)
   switch (bit_op)
   {
   case 1:
-    // BIT 位测试
+    // BIT 位测试 测试寄存器值的指定位是否为 0，设置标志位
     cpu_set_flags(ctx, !(reg_val & (1 << bit)), 0, 1, -1);
     return;
 
@@ -92,7 +92,7 @@ static void proc_cb(cpu_context *ctx)
     cpu_set_reg8(reg, reg_val);
     return;
   }
-  // 其他情况， 移位/交换操作
+  // 其他情况, 根据 bit 值执行具体移位操作。
 
   bool flagC = CPU_FLAG_C;
 
@@ -195,6 +195,103 @@ static void proc_cb(cpu_context *ctx)
   NO_IMPL
 }
 
+static void proc_rlca(cpu_context *ctx)
+{
+  u8 u = ctx->regs.a;
+  bool c = (u >> 7) & 1;
+  u = (u << 1) | c;
+  ctx->regs.a = u;
+
+  cpu_set_flags(ctx, 0, 0, 0, c);
+}
+
+static void proc_rrca(cpu_context *ctx)
+{
+  u8 b = ctx->regs.a & 1;
+  ctx->regs.a >>= 1;
+  ctx->regs.a |= (b << 7);
+
+  cpu_set_flags(ctx, 0, 0, 0, b);
+}
+
+static void proc_rla(cpu_context *ctx)
+{
+  u8 u = ctx->regs.a;
+  u8 cf = CPU_FLAG_C;
+  u8 c = (u >> 7) & 1;
+
+  ctx->regs.a = (u << 1) | cf;
+  cpu_set_flags(ctx, 0, 0, 0, c);
+}
+
+static void proc_stop(cpu_context *ctx)
+{
+  fprintf(stderr, "STOPPING!\n");
+  NO_IMPL
+}
+
+// Decimal Adjust Accumulator, 通常用于处理运算后的调整
+static void proc_daa(cpu_context *ctx)
+{
+  u8 u = 0;
+  int fc = 0; // Flag Carry, 用于指示是否需要设置进位标志
+
+  /*
+  如果半进位标志 H 被设置，或者上一次操作是加法（!CPU_FLAG_N）且累加器的低 4 位大于 9
+  则需要将 u 设置为 6 (0b0110)，以便调整低 4 位
+   */
+  if (CPU_FLAG_H || (!CPU_FLAG_N && (ctx->regs.a & 0xF) > 9))
+  {
+    u = 6;
+  }
+
+  /*
+  如果进位标志 C 被设置，或者上一次操作是加法（!CPU_FLAG_N）且累加器的值大于 0x99
+  则需要将 u 的高 4 位设置为 6（即 0b01100000），并设置 fc 为 1，表示需要设置进位标志。
+  */
+  if (CPU_FLAG_C || (!CPU_FLAG_N && ctx->regs.a > 0x99))
+  {
+    u |= 0x60;
+    fc = 1;
+  }
+
+  ctx->regs.a += CPU_FLAG_N ? -u : u;
+
+  cpu_set_flags(ctx, ctx->regs.a == 0, -1, 0, fc);
+}
+
+static void proc_cpl(cpu_context *ctx)
+{
+  ctx->regs.a = ~ctx->regs.a;
+  cpu_set_flags(ctx, -1, 1, 1, -1);
+}
+
+static void proc_scf(cpu_context *ctx)
+{
+  cpu_set_flags(ctx, -1, 0, 0, 1);
+}
+
+static void proc_ccf(cpu_context *ctx)
+{
+  cpu_set_flags(ctx, -1, 0, 0, CPU_FLAG_C ^ 1);
+}
+
+static void proc_halt(cpu_context *ctx)
+{
+  ctx->halted = true;
+}
+
+static void proc_rra(cpu_context *ctx)
+{
+  u8 carry = CPU_FLAG_C;
+  u8 new_c = ctx->regs.a & 1;
+
+  ctx->regs.a >>= 1;
+  ctx->regs.a |= (carry << 7);
+
+  cpu_set_flags(ctx, 0, 0, 0, new_c);
+}
+
 static void proc_and(cpu_context *ctx)
 {
   ctx->regs.a &= ctx->fetched_data;
@@ -224,6 +321,11 @@ static void proc_cp(cpu_context *ctx)
 static void proc_di(cpu_context *ctx)
 {
   ctx->int_master_enabled = false;
+}
+
+static void proc_ei(cpu_context *ctx)
+{
+  ctx->enabling_ime = true;
 }
 
 static bool is_16_bit(reg_type rt)
@@ -555,6 +657,7 @@ static IN_PROC processors[] = {
     [IN_LDH] = proc_ldh,
     [IN_JP] = proc_jp,
     [IN_DI] = proc_di,
+    [IN_EI] = proc_ei,
     [IN_POP] = proc_pop,
     [IN_PUSH] = proc_push,
     [IN_JR] = proc_jr,
@@ -573,6 +676,16 @@ static IN_PROC processors[] = {
     [IN_OR] = proc_or,
     [IN_CP] = proc_cp,
     [IN_CB] = proc_cb,
+    [IN_RRCA] = proc_rrca,
+    [IN_RLCA] = proc_rlca,
+    [IN_RRA] = proc_rra,
+    [IN_RLA] = proc_rla,
+    [IN_STOP] = proc_stop,
+    [IN_HALT] = proc_halt,
+    [IN_DAA] = proc_daa,
+    [IN_CPL] = proc_cpl,
+    [IN_SCF] = proc_scf,
+    [IN_CCF] = proc_ccf,
 };
 
 IN_PROC inst_get_processor(in_type type)

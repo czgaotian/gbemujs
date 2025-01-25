@@ -31,8 +31,10 @@ typedef struct
   bool halted;
   bool stepping;
 
-  bool int_master_enabled; //  CPU 中断主控制开关, 通常通过 IME 指令来控制
-  u8 ie_register;
+  bool int_master_enabled; //  CPU 中断主控制开关, 当前 IME 状态, 通常通过 IME 指令来控制
+  bool enabling_ime;       //  延迟启用 IME 的标志
+  u8 ie_register;          // （中断使能寄存器）决定哪些中断可触发。中断发生时，PC入栈，跳转到中断向量
+  u8 int_flags;            // （中断标志寄存器）记录当前发生的中断
 
 } cpu_context;
 
@@ -45,8 +47,10 @@ typedef void (*IN_PROC)(cpu_context *);
 
 IN_PROC inst_get_processor(in_type type);
 
-#define CPU_FLAG_Z BIT(ctx->regs.f, 7)
-#define CPU_FLAG_C BIT(ctx->regs.f, 4)
+#define CPU_FLAG_Z BIT(ctx->regs.f, 7) // Zero Flag, 零标志,, 结果是否为 0
+#define CPU_FLAG_N BIT(ctx->regs.f, 6) // Subtract Flag, 减法标志, 是否为减法/比较操作
+#define CPU_FLAG_H BIT(ctx->regs.f, 5) // Half Carry Flag, 半进位标志, 半字节进位/借位
+#define CPU_FLAG_C BIT(ctx->regs.f, 4) // Carry Flag, 进位标志, 全字节进位/借位
 
 u16 cpu_read_reg(reg_type rt);
 void cpu_set_reg(reg_type rt, u16 val);
@@ -56,3 +60,6 @@ void cpu_set_ie_register(u8 val);
 
 u8 cpu_read_reg8(reg_type rt);
 void cpu_set_reg8(reg_type rt, u8 val);
+
+u8 cpu_get_int_flags();
+void cpu_set_int_flags(u8 val);
