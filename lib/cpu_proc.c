@@ -379,15 +379,21 @@ static void proc_ld(cpu_context *ctx)
   cpu_set_reg(ctx->cur_inst->reg_1, ctx->fetched_data); // 普通寄存器加载
 }
 
+/*
+Load High,
+从内存的高地址区(0xFF00 到 0xFFFF)域加载数据到寄存器, 或者将寄存器的数据写入内存的高地址区域
+*/
 static void proc_ldh(cpu_context *ctx)
 {
+  // 如果当前指令的目标寄存器(reg_1)是寄存器 A, 则执行加载操作
   if (ctx->cur_inst->reg_1 == RT_A)
   {
     cpu_set_reg(ctx->cur_inst->reg_1, bus_read(0xFF00 | ctx->fetched_data));
   }
+  // 否则则执行存储操作
   else
   {
-    bus_write(0xFF00 | ctx->fetched_data, ctx->regs.a);
+    bus_write(ctx->mem_dest, ctx->regs.a);
   }
 
   emu_cycles(1);
