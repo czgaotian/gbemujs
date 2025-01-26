@@ -2,6 +2,7 @@
 #include <cart.h>
 #include <ram.h>
 #include <cpu.h>
+#include <io.h>
 
 // 0x0000 - 0x3FFF : ROM Bank 0
 // 0x4000 - 0x7FFF : ROM Bank 1 - Switchable
@@ -28,7 +29,7 @@ u8 bus_read(u16 address)
   {
     // Char/Map Data
     // TODO
-    printf("UNSUPPORTED bus_read(%04X)\n", address);
+    printf("UNSUPPORTED 1 bus_read(%04X)\n", address);
     NO_IMPL
   }
   else if (address < 0xC000)
@@ -50,8 +51,9 @@ u8 bus_read(u16 address)
   {
     // OAM
     // TODO
-    printf("UNSUPPORTED bus_read(%04X)\n", address);
-    NO_IMPL
+    printf("UNSUPPORTED 2 bus_read(%04X)\n", address);
+    // NO_IMPL
+    return 0x0;
   }
   else if (address < 0xFF00)
   {
@@ -60,10 +62,7 @@ u8 bus_read(u16 address)
   }
   else if (address < 0xFF80)
   {
-    // IO Registers...
-    // TODO
-    printf("UNSUPPORTED bus_read(%04X)\n", address);
-    NO_IMPL
+    return io_read(address);
   }
   else if (address == 0xFFFF)
   {
@@ -87,8 +86,8 @@ void bus_write(u16 address, u8 value)
   {
     // Char/Map Data
     // TODO
-    printf("UNSUPPORTED bus_write(%04X)\n", address);
-    NO_IMPL
+    printf("UNSUPPORTED 1 bus_write(%04X)\n", address);
+    // NO_IMPL
   }
   else if (address < 0xC000)
   {
@@ -109,7 +108,7 @@ void bus_write(u16 address, u8 value)
     // OAM
 
     // TODO
-    printf("UNSUPPORTED bus_write(%04X)\n", address);
+    printf("UNSUPPORTED 2 bus_write(%04X)\n", address);
     NO_IMPL
   }
   else if (address < 0xFF00)
@@ -118,10 +117,7 @@ void bus_write(u16 address, u8 value)
   }
   else if (address < 0xFF80)
   {
-    // IO Registers...
-    // TODO
-    printf("UNSUPPORTED bus_write(%04X)\n", address);
-    // NO_IMPL
+    io_write(address, value);
   }
   else if (address == 0xFFFF)
   {
