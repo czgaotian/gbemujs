@@ -62,6 +62,7 @@ u8 bus_read(u16 address)
   }
   else if (address < 0xFF80)
   {
+    // 0xFF00 - 0xFF7F : I/O Registers
     return io_read(address);
   }
   else if (address == 0xFFFF)
@@ -117,6 +118,7 @@ void bus_write(u16 address, u8 value)
   }
   else if (address < 0xFF80)
   {
+    // 0xFF00 - 0xFF7F : I/O Registers
     io_write(address, value);
   }
   else if (address == 0xFFFF)
