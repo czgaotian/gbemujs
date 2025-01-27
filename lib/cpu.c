@@ -93,7 +93,7 @@ bool cpu_step()
 
     if (ctx.int_master_enabled)
     {
-        // cpu_handle_interrupts(&ctx);
+        cpu_handle_interrupts(&ctx);
         ctx.enabling_ime = false;
     }
 

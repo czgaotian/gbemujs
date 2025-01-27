@@ -171,7 +171,7 @@ void cpu_set_reg8(reg_type rt, u8 val)
   }
 }
 
-cpu_registers *cpu_get_registers()
+cpu_registers *cpu_get_regs()
 {
   return &ctx.regs;
 }
