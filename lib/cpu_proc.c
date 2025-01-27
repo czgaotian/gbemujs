@@ -205,6 +205,7 @@ static void proc_rlca(cpu_context *ctx)
   cpu_set_flags(ctx, 0, 0, 0, c);
 }
 
+// Rotate Right Circular Accumulator,
 static void proc_rrca(cpu_context *ctx)
 {
   u8 b = ctx->regs.a & 1;
@@ -222,6 +223,17 @@ static void proc_rla(cpu_context *ctx)
 
   ctx->regs.a = (u << 1) | cf;
   cpu_set_flags(ctx, 0, 0, 0, c);
+}
+
+static void proc_rra(cpu_context *ctx)
+{
+  u8 carry = CPU_FLAG_C;
+  u8 new_c = ctx->regs.a & 1;
+
+  ctx->regs.a >>= 1;
+  ctx->regs.a |= (carry << 7);
+
+  cpu_set_flags(ctx, 0, 0, 0, new_c);
 }
 
 static void proc_stop(cpu_context *ctx)
@@ -281,17 +293,6 @@ static void proc_halt(cpu_context *ctx)
   ctx->halted = true;
 }
 
-static void proc_rra(cpu_context *ctx)
-{
-  u8 carry = CPU_FLAG_C;
-  u8 new_c = ctx->regs.a & 1;
-
-  ctx->regs.a >>= 1;
-  ctx->regs.a |= (carry << 7);
-
-  cpu_set_flags(ctx, 0, 0, 0, new_c);
-}
-
 static void proc_and(cpu_context *ctx)
 {
   ctx->regs.a &= ctx->fetched_data;
@@ -347,6 +348,8 @@ static void proc_ld(cpu_context *ctx)
     {
       bus_write(ctx->mem_dest, ctx->fetched_data);
     }
+
+    emu_cycles(1);
 
     return;
   }
@@ -440,6 +443,7 @@ static void proc_jp(cpu_context *ctx)
   goto_addr(ctx, ctx->fetched_data, false);
 }
 
+// Jump Relative, 相对跳转操作
 static void proc_jr(cpu_context *ctx)
 {
   // 直接转char以正确处理负数
@@ -487,9 +491,10 @@ static void proc_reti(cpu_context *ctx)
 
 static void proc_pop(cpu_context *ctx)
 {
-  u16 hi = stack_pop();
-  emu_cycles(1);
+
   u16 lo = stack_pop();
+  emu_cycles(1);
+  u16 hi = stack_pop();
   emu_cycles(1);
 
   u16 val = (hi << 8) | lo;
@@ -509,7 +514,7 @@ static void proc_push(cpu_context *ctx)
   emu_cycles(1);
   stack_push(hi);
 
-  u16 lo = cpu_read_reg(ctx->cur_inst->reg_2) & 0xFF;
+  u16 lo = cpu_read_reg(ctx->cur_inst->reg_1) & 0xFF;
   emu_cycles(1);
   stack_push(lo);
 
