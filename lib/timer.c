@@ -21,6 +21,7 @@ void timer_tick()
 
   bool timer_update = false;
 
+  // 根据 TAC 的低2位选择不同的定时器频率
   switch (ctx.tac & (0b11))
   {
   case 0b00:
@@ -37,6 +38,7 @@ void timer_tick()
     break;
   }
 
+  // 如果TAC的第2位(使能位)为1(定时器已经启用)且需要更新
   if (timer_update && ctx.tac & (1 << 2))
   {
     ctx.tima++;
@@ -45,7 +47,7 @@ void timer_tick()
     {
       ctx.tima = ctx.tma;
 
-      cpu_request_interrupt(IT_TIMER);
+      cpu_request_interrupt(IT_TIMER); // 触发中断
     }
   }
 }
