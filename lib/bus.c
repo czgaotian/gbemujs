@@ -3,6 +3,8 @@
 #include <ram.h>
 #include <cpu.h>
 #include <io.h>
+#include <ppu.h>
+#include <dma.h>
 
 // 0x0000 - 0x3FFF : ROM Bank 0
 // 0x4000 - 0x7FFF : ROM Bank 1 - Switchable
@@ -28,9 +30,7 @@ u8 bus_read(u16 address)
   else if (address < 0xA000)
   {
     // Char/Map Data
-    // TODO
-    printf("UNSUPPORTED 1 bus_read(%04X)\n", address);
-    NO_IMPL
+    return ppu_vram_read(address);
   }
   else if (address < 0xC000)
   {
@@ -50,10 +50,12 @@ u8 bus_read(u16 address)
   else if (address < 0xFEA0)
   {
     // OAM
-    // TODO
-    printf("UNSUPPORTED 2 bus_read(%04X)\n", address);
-    // NO_IMPL
-    return 0x0;
+    if (dma_transferring())
+    {
+      return 0xFF;
+    }
+
+    return ppu_oam_read(address);
   }
   else if (address < 0xFF00)
   {
@@ -68,7 +70,6 @@ u8 bus_read(u16 address)
   else if (address == 0xFFFF)
   {
     // CPU ENABLE REGISTER...
-    // TODO
     return cpu_get_ie_register();
   }
 
@@ -85,10 +86,7 @@ void bus_write(u16 address, u8 value)
   }
   else if (address < 0xA000)
   {
-    // Char/Map Data
-    // TODO
-    printf("UNSUPPORTED 1 bus_write(%04X)\n", address);
-    // NO_IMPL
+    ppu_vram_write(address, value);
   }
   else if (address < 0xC000)
   {
@@ -107,10 +105,12 @@ void bus_write(u16 address, u8 value)
   else if (address < 0xFEA0)
   {
     // OAM
+    if (dma_transferring())
+    {
+      return;
+    }
 
-    // TODO
-    printf("UNSUPPORTED 2 bus_write(%04X)\n", address);
-    NO_IMPL
+    ppu_oam_write(address, value);
   }
   else if (address < 0xFF00)
   {
@@ -124,7 +124,6 @@ void bus_write(u16 address, u8 value)
   else if (address == 0xFFFF)
   {
     // CPU SET ENABLE REGISTER
-
     cpu_set_ie_register(value);
   }
   else
