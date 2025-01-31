@@ -22,22 +22,39 @@ void increment_ly()
   }
 }
 
+// OAM 模式, 扫描精灵, Mode 2
 void ppu_mode_oam()
 {
   if (ppu_get_context()->line_ticks >= 80)
   {
     LCDS_MODE_SET(MODE_XFER);
+
+    ppu_get_context()->pfc.cur_fetch_state = FS_TILE;
+    ppu_get_context()->pfc.line_x = 0;
+    ppu_get_context()->pfc.fetch_x = 0;
+    ppu_get_context()->pfc.pushed_x = 0;
+    ppu_get_context()->pfc.fifo_x = 0;
   }
 }
 
+// 像素传输模式, Mode 3
 void ppu_mode_xfer()
 {
-  if (ppu_get_context()->line_ticks >= 80 + 172)
+  pipeline_process();
+
+  if (ppu_get_context()->pfc.pushed_x >= XRES)
   {
+    pipeline_fifo_reset();
     LCDS_MODE_SET(MODE_HBLANK);
+
+    if (LCDS_STAT_INT(SS_HBLANK))
+    {
+      cpu_request_interrupt(IT_LCD_STAT);
+    }
   }
 }
 
+// 垂直消隐期, Mode 1
 void ppu_mode_vblank()
 {
   if (ppu_get_context()->line_ticks >= TICKS_PER_LINE)
@@ -59,6 +76,7 @@ static long prev_frame_time = 0;
 static long start_timer = 0;
 static long frame_count = 0;
 
+// 水平消隐期, Mode 0
 void ppu_mode_hblank()
 {
   if (ppu_get_context()->line_ticks >= TICKS_PER_LINE)
