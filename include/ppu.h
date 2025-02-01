@@ -32,16 +32,16 @@ typedef struct
 typedef struct
 {
   fetch_state cur_fetch_state; // 当前获取状态
-  fifo pixel_fifo;             // 像素FIFO队列
-  u8 line_x;                   // 当前扫描线X坐标
-  u8 pushed_x;                 // 已推送的X坐标, 表示在当前扫描行中已经有多少个像素被推送到视频缓冲区
-  u8 fetch_x;                  // 获取操作的X坐标
+  fifo pixel_fifo;             // 像素 FIFO 队列
+  u8 line_x;                   // 当前扫描线 X 坐标
+  u8 pushed_x;                 // 已推送的 X 坐标, 表示在当前扫描行中已经有多少个像素被推送到视频缓冲区
+  u8 fetch_x;                  // 获取操作的 X 坐标
   u8 bgw_fetch_data[3];        // 背景/窗口获取数据, 0: tile 编号, 1: tile 数据的低字节, 2: tile 数据的高字节
-  u8 fetch_entry_data[6];      // OAM(对象属性内存)数据
-  u8 map_y;                    // 图块地图Y坐标, pixel
-  u8 map_x;                    // 图块地图X坐标, pixel
-  u8 tile_y;                   // 图块内Y坐标, pixel
-  u8 fifo_x;                   // FIFO的X位置
+  u8 fetch_entry_data[6];      // OAM (对象属性内存)数据
+  u8 map_y;                    // 图块地图 Y 坐标, pixel
+  u8 map_x;                    // 图块地图 X 坐标, pixel
+  u8 tile_y;                   // 图块内 Y 坐标, pixel
+  u8 fifo_x;                   // FIFO 的 X 位置
 } pixel_fifo_context;
 
 /*
@@ -102,6 +102,7 @@ typedef struct
 
   u8 fetched_entry_count;       // 当前已获取的精灵数量, 最多 3 个
   oam_entry fetched_entries[3]; // 存储当前已获取的精灵属性数据, 最多 3 个
+  u8 window_line;
 
   pixel_fifo_context pfc; // 像素FIFO上下文
   u32 current_frame;      // 当前帧计数
