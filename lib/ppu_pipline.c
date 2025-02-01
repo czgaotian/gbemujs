@@ -40,6 +40,62 @@ u32 pixel_fifo_pop()
   return val;
 }
 
+u32 fetch_sprite_pixels(int bit, u32 color, u8 bg_color)
+{
+  for (int i = 0; i < ppu_get_context()->fetched_entry_count; i++)
+  {
+    // 根据 Sprite 的 x 坐标和水平滚动偏移 (scroll_x % 8), 计算 Sprite 在屏幕上的实际显示位置
+    int sp_x = (ppu_get_context()->fetched_entries[i].x - 8) +
+               ((lcd_get_context()->scroll_x % 8));
+
+    if (sp_x + 8 < ppu_get_context()->pfc.fifo_x)
+    {
+      // past pixel point already...
+      continue;
+    }
+
+    int offset = ppu_get_context()->pfc.fifo_x - sp_x;
+
+    if (offset < 0 || offset > 7)
+    {
+      // out of bounds..
+      continue;
+    }
+
+    bit = (7 - offset);
+
+    // 如果 Sprite 设置了水平翻转，则像素的位索引是从右到左的。
+    if (ppu_get_context()->fetched_entries[i].f_x_flip)
+    {
+      bit = offset;
+    }
+
+    u8 hi = !!(ppu_get_context()->pfc.fetch_entry_data[i * 2] & (1 << bit));
+    u8 lo = !!(ppu_get_context()->pfc.fetch_entry_data[(i * 2) + 1] & (1 << bit)) << 1;
+
+    bool bg_priority = ppu_get_context()->fetched_entries[i].f_bgp;
+
+    if (!(hi | lo))
+    {
+      // transparent
+      continue;
+    }
+
+    // 如果精灵设置了背景优先级（f_bgp），并且背景像素颜色不为 0，则保留背景颜色
+    if (!bg_priority || bg_color == 0)
+    {
+      color = (ppu_get_context()->fetched_entries[i].f_pn) ? lcd_get_context()->sp2_colors[hi | lo] : lcd_get_context()->sp1_colors[hi | lo];
+
+      if (hi | lo)
+      {
+        break;
+      }
+    }
+  }
+
+  return color;
+}
+
 bool pipeline_fifo_add()
 {
   if (ppu_get_context()->pfc.pixel_fifo.size > 8)
@@ -58,6 +114,16 @@ bool pipeline_fifo_add()
     u8 lo = !!(ppu_get_context()->pfc.bgw_fetch_data[2] & (1 << bit)) << 1;
     u32 color = lcd_get_context()->bg_colors[hi | lo];
 
+    if (!LCDC_BGW_ENABLE)
+    {
+      color = lcd_get_context()->bg_colors[0];
+    }
+
+    if (LCDC_OBJ_ENABLE)
+    {
+      color = fetch_sprite_pixels(bit, color, hi | lo);
+    }
+
     if (x >= 0)
     {
       pixel_fifo_push(color);
@@ -68,6 +134,79 @@ bool pipeline_fifo_add()
   return true;
 }
 
+// 遍历当前扫描线上的精灵链表，筛选出与当前渲染位置（fetch_x）相关的精灵，并将其存储到 fetched_entries 数组中
+void pipeline_load_sprite_tile()
+{
+  oam_line_entry *le = ppu_get_context()->line_sprites;
+
+  while (le)
+  {
+    int sp_x = (le->entry.x - 8) + (lcd_get_context()->scroll_x % 8);
+
+    /*
+    如果精灵的显示范围（sp_x 到 sp_x + 8）与当前渲染位置（fetch_x 到 fetch_x + 8）重叠
+    则将该精灵添加到 fetched_entries 数组中
+    */
+    if ((sp_x >= ppu_get_context()->pfc.fetch_x && sp_x < ppu_get_context()->pfc.fetch_x + 8) ||
+        ((sp_x + 8) >= ppu_get_context()->pfc.fetch_x && (sp_x + 8) < ppu_get_context()->pfc.fetch_x + 8))
+    {
+      // need to add entry
+      ppu_get_context()->fetched_entries[ppu_get_context()->fetched_entry_count++] = le->entry;
+    }
+
+    le = le->next;
+
+    if (!le || ppu_get_context()->fetched_entry_count >= 3)
+    {
+      // max checking 3 sprites on pixels
+      break;
+    }
+  }
+}
+
+// 从 VRAM 中加载已筛选 Sprite 的 tile 数据，并将其存储到 fetch_entry_data 中
+void pipeline_load_sprite_data(u8 offset)
+{
+  int cur_y = lcd_get_context()->ly;
+  u8 sprite_height = LCDC_OBJ_HEIGHT;
+
+  for (int i = 0; i < ppu_get_context()->fetched_entry_count; i++)
+  {
+    /*
+    计算行号 ty
+
+    cur_y + 16 是当前扫描线在 Sprite 坐标系统中的位置
+    ppu_get_context()->fetched_entries[i].y 是 Sprite 的 y 坐标
+    乘 2 因为每行数据占 2 字节
+    */
+    u8 ty = ((cur_y + 16) - ppu_get_context()->fetched_entries[i].y) * 2;
+
+    // 如果 Sprite 设置了垂直翻转（f_y_flip），则调整行号
+    if (ppu_get_context()->fetched_entries[i].f_y_flip)
+    {
+      // flipped upside down...
+      ty = ((sprite_height * 2) - 2) - ty;
+    }
+
+    u8 tile_index = ppu_get_context()->fetched_entries[i].tile;
+
+    if (sprite_height == 16)
+    {
+      tile_index &= ~(1); // remove last bit...
+    }
+
+    /*
+    tile 数据的起始地址为 0x8000
+    每个 tile 占 16 字节 (8 行，每行 2 字节)
+    图块编号 tile_index 用于定位具体的图块
+    ty 行号
+    offset 高低位
+    */
+    ppu_get_context()->pfc.fetch_entry_data[(i * 2) + offset] =
+        bus_read(0x8000 + (tile_index * 16) + ty + offset);
+  }
+}
+
 // 获取 tile 数据
 void pipeline_fetch()
 {
@@ -75,6 +214,8 @@ void pipeline_fetch()
   {
   case FS_TILE:
   {
+    ppu_get_context()->fetched_entry_count = 0;
+
     if (LCDC_BGW_ENABLE)
     {
       /*
@@ -93,6 +234,11 @@ void pipeline_fetch()
       }
     }
 
+    if (LCDC_OBJ_ENABLE && ppu_get_context()->line_sprites)
+    {
+      pipeline_load_sprite_tile();
+    }
+
     ppu_get_context()->pfc.cur_fetch_state = FS_DATA0;
     ppu_get_context()->pfc.fetch_x += 8;
   }
@@ -108,6 +254,8 @@ void pipeline_fetch()
                                                         (ppu_get_context()->pfc.bgw_fetch_data[0] * 16) +
                                                         ppu_get_context()->pfc.tile_y);
 
+    pipeline_load_sprite_data(0);
+
     ppu_get_context()->pfc.cur_fetch_state = FS_DATA1;
   }
   break;
@@ -118,6 +266,8 @@ void pipeline_fetch()
     ppu_get_context()->pfc.bgw_fetch_data[2] = bus_read(LCDC_BGW_DATA_AREA +
                                                         (ppu_get_context()->pfc.bgw_fetch_data[0] * 16) +
                                                         ppu_get_context()->pfc.tile_y + 1);
+
+    pipeline_load_sprite_data(1);
 
     ppu_get_context()->pfc.cur_fetch_state = FS_IDLE;
   }

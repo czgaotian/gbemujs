@@ -69,6 +69,12 @@ typedef struct
   u8 f_bgp : 1;           // 背景优先级
 } oam_entry;
 
+typedef struct _oam_line_entry
+{
+  oam_entry entry;
+  struct _oam_line_entry *next;
+} oam_line_entry;
+
 /*
   vram
 
@@ -87,8 +93,16 @@ typedef struct
 */
 typedef struct
 {
-  oam_entry oam_ram[40];  // 40个精灵的OAM内存
-  u8 vram[0x2000];        // 8KB的视频RAM
+  oam_entry oam_ram[40]; // 40个精灵的OAM内存
+  u8 vram[0x2000];       // 8KB的视频RAM
+
+  u8 line_sprite_count;                // 0 to 10 sprites
+  oam_line_entry *line_sprites;        // linked list of current sprites on line.
+  oam_line_entry line_entry_array[10]; // memory to use for list.
+
+  u8 fetched_entry_count;       // 当前已获取的精灵数量, 最多 3 个
+  oam_entry fetched_entries[3]; // 存储当前已获取的精灵属性数据, 最多 3 个
+
   pixel_fifo_context pfc; // 像素FIFO上下文
   u32 current_frame;      // 当前帧计数
   u32 line_ticks;         // 当前扫描线的时钟计数
