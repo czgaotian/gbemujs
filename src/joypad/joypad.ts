@@ -1,5 +1,3 @@
-
 export class Joypad {
-    constructor() {
-    }
+  constructor() {}
 }

@@ -1,9 +1,9 @@
-import { MMU } from "../mmu/mmu";
+import { MMU } from '../mmu/mmu';
 
 export class PPU {
-    private mmu: MMU;
+  private mmu: MMU;
 
-    constructor(mmu: MMU) {
-        this.mmu = mmu;
-    }
+  constructor(mmu: MMU) {
+    this.mmu = mmu;
+  }
 }
