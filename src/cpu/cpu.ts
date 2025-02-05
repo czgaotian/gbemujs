@@ -1,27 +1,28 @@
 import { Registers } from './registers';
-import { MMU } from '../mmu/mmu';
-import { AddressMode, Instruction, ConditionType } from '../types';
+import { AddressMode, Instruction, ConditionType, Flag } from '../types';
 import { instructionMap, instructionDisplay } from './instruction';
 import { bitSet } from '../utils';
 import { processorMap } from './processor';
+import { GameBoy } from '../emu/emu';
+import { Bus } from '../bus/bus';
 
 export class CPU {
-  private mmu: MMU;
+  public emulator: GameBoy;
+  public bus: Bus;
   public registers: Registers;
 
-  private opcode: number = 0;
+  public opcode: number = 0;
   public fetchedData: number = 0;
   public instruction?: Instruction;
-  private memoryDestination: number = 0;
-  private destinationIsMemory: boolean = false;
-
-  private halted: boolean = false;
-  private stepping: boolean = false;
-
+  public memoryDestination: number = 0;
+  public destinationIsMemory: boolean = false;
+  public halted: boolean = false;
+  public stepping: boolean = false;
   public intMasterEnabled: boolean = false;
 
-  constructor(mmu: MMU) {
-    this.mmu = mmu;
+  constructor(emulator: GameBoy) {
+    this.emulator = emulator;
+    this.bus = emulator.bus;
     this.registers = new Registers();
   }
 
@@ -30,7 +31,7 @@ export class CPU {
   }
 
   private fetchInstruction(): void {
-    this.opcode = this.mmu.readByte(this.registers.pc++);
+    this.opcode = this.bus.readByte(this.registers.pc++);
     this.instruction = instructionMap[this.opcode];
   }
 
@@ -50,21 +51,21 @@ export class CPU {
         if (!this.instruction.registerType1) {
           throw new Error('Register type is required for R mode');
         }
-        this.fetchedData = this.registers.readRegister(
+        this.fetchedData = this.registers.cpuReadRegister(
           this.instruction.registerType1
         );
         return;
 
       case AddressMode.R_D8:
-        this.fetchedData = this.mmu.readByte(this.registers.pc);
+        this.fetchedData = this.bus.readByte(this.registers.pc);
         this.registers.pc++;
         return;
 
       case AddressMode.D16:
-        const lo = this.mmu.readByte(this.registers.pc);
+        const lo = this.bus.readByte(this.registers.pc);
         this.registers.pc++;
 
-        const hi = this.mmu.readByte(this.registers.pc);
+        const hi = this.bus.readByte(this.registers.pc);
         this.registers.pc++;
 
         this.fetchedData = lo | (hi << 8);
@@ -94,21 +95,22 @@ export class CPU {
     return true;
   }
 
-  public cpuSetFlags(z: boolean, n: boolean, h: boolean, c: boolean) {
-    if (z) {
-      this.registers.f = bitSet(this.registers.f, 7, z);
+
+  public cpuSetFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
+    if (z != -1) {
+      this.registers.f = bitSet(this.registers.f, 7, !!z);
     }
 
-    if (n) {
-      this.registers.f = bitSet(this.registers.f, 6, n);
+    if (n != -1) {
+      this.registers.f = bitSet(this.registers.f, 6, !!n);
     }
 
-    if (h) {
-      this.registers.f = bitSet(this.registers.f, 5, h);
+    if (h != -1) {
+      this.registers.f = bitSet(this.registers.f, 5, !!h);
     }
 
-    if (c) {
-      this.registers.f = bitSet(this.registers.f, 4, c);
+    if (c != -1) {
+      this.registers.f = bitSet(this.registers.f, 4, !!c);
     }
   }
 
@@ -119,23 +121,15 @@ export class CPU {
 
     switch (this.instruction.conditionType) {
       case ConditionType.C:
-        return this.flagC;
+        return this.registers.flagC;
       case ConditionType.NC:
-        return !this.flagC;
+        return !this.registers.flagC;
       case ConditionType.Z:
-        return this.flagZ;
+        return this.registers.flagZ;
       case ConditionType.NZ:
-        return !this.flagZ;
+        return !this.registers.flagZ;
       default:
         return false;
     }
-  }
-
-  get flagZ(): boolean {
-    return (this.registers.f & 0x80) !== 0;
-  }
-
-  get flagC(): boolean {
-    return (this.registers.f & 0x10) !== 0;
   }
 }

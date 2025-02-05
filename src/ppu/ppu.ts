@@ -1,9 +1,9 @@
-import { MMU } from '../mmu/mmu';
+import { GameBoy } from '../emu/emu';
 
 export class PPU {
-  private mmu: MMU;
+  public emulator: GameBoy;
 
-  constructor(mmu: MMU) {
-    this.mmu = mmu;
+  constructor(emulator: GameBoy) {
+    this.emulator = emulator;
   }
 }

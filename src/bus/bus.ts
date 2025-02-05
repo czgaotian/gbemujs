@@ -1,4 +1,4 @@
-import { Cartridge } from "../cartridge/cartridge";
+import { GameBoy } from "../emu/emu";
 
 // 0x0000 - 0x3FFF : ROM Bank 0
 // 0x4000 - 0x7FFF : ROM Bank 1 - Switchable
@@ -14,17 +14,17 @@ import { Cartridge } from "../cartridge/cartridge";
 // 0xFF00 - 0xFF7F : I/O Registers
 // 0xFF80 - 0xFFFE : Zero Page
 
-export class MMU {
-  private cartridge: Cartridge;
+export class Bus {
+  private emu: GameBoy;
 
-  constructor() {
-    this.cartridge = new Cartridge();
+  constructor(gameBoy: GameBoy) {
+    this.emu = gameBoy;
   }
 
   public readByte(address: number): number {
     // 卡带ROM和RAM区域
     if (address < 0x8000) {
-      return this.cartridge.readByte(address);
+      return this.emu.cartridge.readByte(address);
     }
 
     return 0xff;
@@ -33,13 +33,8 @@ export class MMU {
   public writeByte(address: number, value: number): void {
     // 卡带ROM和RAM区域
     if (address < 0x8000) {
-      this.cartridge.writeByte(address, value);
+      this.emu.cartridge.writeByte(address, value);
       return;
     }
-  }
-
-  public loadROM(data: Uint8Array): void {
-    this.cartridge.loadROM(data);
-    console.log("Loaded cartridge:", this.cartridge.getCartridgeInfo());
   }
 }

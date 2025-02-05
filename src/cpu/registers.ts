@@ -1,3 +1,4 @@
+import { reverse } from 'node:dns';
 import { RegisterType } from '../types';
 
 export class Registers {
@@ -30,7 +31,7 @@ export class Registers {
   }
 
   // 获取16位组合寄存器
-  public readRegister(registerType: RegisterType): number {
+  public cpuReadRegister(registerType: RegisterType): number {
     switch (registerType) {
       case RegisterType.A:
         return this.a;
@@ -49,13 +50,13 @@ export class Registers {
       case RegisterType.L:
         return this.l;
       case RegisterType.AF:
-        return (this.a << 8) | this.f;
+        return (this.f << 8) | this.a;
       case RegisterType.BC:
-        return (this.b << 8) | this.c;
+        return (this.c << 8) | this.b;
       case RegisterType.DE:
-        return (this.d << 8) | this.e;
+        return (this.e << 8) | this.d;
       case RegisterType.HL:
-        return (this.h << 8) | this.l;
+        return (this.l << 8) | this.h;
       case RegisterType.SP:
         return this.sp;
       case RegisterType.PC:
@@ -63,5 +64,68 @@ export class Registers {
       default:
         return 0;
     }
+  }
+
+  public cpuSetRegister(registerType: RegisterType, val: number) {
+    switch (registerType) {
+      case RegisterType.A:
+        this.a = val & 0xFF;
+        break;
+      case RegisterType.F:
+        this.f = val & 0xFF;
+        break;
+      case RegisterType.B:
+        this.b = val & 0xFF;
+        break;
+      case RegisterType.C:
+        this.c = val & 0xFF;
+        break;
+      case RegisterType.D:
+        this.d = val & 0xFF;
+        break;
+      case RegisterType.E:
+        this.e = val & 0xFF;
+        break;
+      case RegisterType.H:
+        this.h = val & 0xFF;
+        break;
+      case RegisterType.L:
+        this.l = val & 0xFF;
+        break;
+
+      case RegisterType.AF:
+        this.a = val & 0xFF;
+        this.f = val >> 8 & 0xFF;
+        break;
+      case RegisterType.BC:
+        this.b = val & 0xFF;
+        this.c = val >> 8 & 0xFF;
+        break;
+      case RegisterType.DE:
+        this.d = val & 0xFF;
+        this.e = val >> 8 & 0xFF;
+        break;
+      case RegisterType.HL:
+        this.h = val & 0xFF;
+        this.l = val >> 8 & 0xFF;
+        break;
+
+      case RegisterType.PC:
+        this.pc = val;
+        break;
+      case RegisterType.SP:
+        this.sp = val;
+        break;
+      case RegisterType.NONE:
+        break;
+    }
+  }
+
+  get flagZ(): boolean {
+    return (this.f & 0x80) !== 0;
+  }
+
+  get flagC(): boolean {
+    return (this.f & 0x10) !== 0;
   }
 }

@@ -8,8 +8,8 @@ export enum AddressMode {
   R_MR,
   R_HLI,
   R_HLD,
-  R_HLI_R,
-  R_HLD_R,
+  HLI_R,
+  HLD_R,
   R_A8,
   A8_R,
   HL_SPR,
@@ -108,3 +108,5 @@ export interface Instruction {
   conditionType?: ConditionType;
   param?: number;
 }
+
+export type Flag = true | false | 1 | 0 | -1;

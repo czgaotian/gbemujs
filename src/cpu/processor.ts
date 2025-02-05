@@ -1,4 +1,4 @@
-import { InstructionType as IN, InstructionType } from '../types';
+import { InstructionType as IN, InstructionType, AddressMode, RegisterType } from '../types';
 import { CPU } from './cpu';
 
 function NOP() {}
@@ -24,8 +24,74 @@ function XOR(this: CPU) {
 function JP( this: CPU) {
   if (this.checkCondition()) {
     this.registers.pc = this.fetchedData;
-    // this.emuCycle(1);
+    this.emulator.emulatorCycle(1);
   }
+}
+
+function INC(this: CPU) {
+  if (!this.instruction?.registerType1) {
+    throw new Error('Register type is required for INC instruction');
+  }
+
+  let val = this.registers.cpuReadRegister(this.instruction?.registerType1) + 1;
+
+  if (this.instruction?.addressMode === AddressMode.R_D16) {
+    this.emulator.emulatorCycle(1);
+  }
+
+  // 如果是对内存(HL)操作,则从总线读写数据
+  if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR)
+  {
+    val = this.mmu.readByte(this.registers.cpuReadRegister(RegisterType.HL)) + 1;
+    val &= 0xFF;
+    this.mmu.writeByte(this.registers.cpuReadRegister(RegisterType.HL), val);
+  }
+  else
+  {
+    this.registers.cpuSetRegister(this.instruction?.registerType1, val);
+    val = this.registers.cpuReadRegister(this.instruction?.registerType1);
+  }
+
+  // 检查操作码最后两位是否为 11(0x03), 如果是则不更新标志位
+  if ((this.opcode & 0x03) == 0x03)
+  {
+    return;
+  }
+
+  // 更新标志位: Z:结果是否为0 N:设为0 H:低4位是否溢出 C:保持不变
+  this.cpuSetFlags(val == 0, 0, (val & 0x0F) == 0, -1);
+}
+
+function DEC(this: CPU) {
+  if (!this.instruction?.registerType1) {
+    throw new Error('Register type is required for DEC instruction');
+  }
+
+  let val = this.registers.cpuReadRegister(this.instruction?.registerType1) - 1;
+
+  if (this.instruction?.addressMode === AddressMode.R_D16) {
+    this.emulator.emulatorCycle(1);
+  }
+
+  if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR)
+  {
+    val = this.mmu.readByte(this.registers.cpuReadRegister(RegisterType.HL)) - 1;
+    this.mmu.writeByte(this.registers.cpuReadRegister(RegisterType.HL), val);
+  }
+  else
+  {
+    this.registers.cpuSetRegister(this.instruction?.registerType1, val);
+    val = this.registers.cpuReadRegister(this.instruction?.registerType1);
+  }
+
+  // 检查操作码是否匹配模式 xxxx1011(0x0B)。如果是，则直接返回不更新标志位
+  if ((this.opcode & 0x0B) == 0x0B)
+  {
+    return;
+  }
+
+  // 更新标志位: Z:结果是否为0 N:设为1 H:低4位是否借位 C:保持不变
+  this.cpuSetFlags(val == 0, true, (val & 0x0F) == 0x0F, -1);
 }
 
 export const processorMap: Record<InstructionType, Function> = {
@@ -35,4 +101,6 @@ export const processorMap: Record<InstructionType, Function> = {
   [IN.JP]: JP,
   [IN.DI]: DI,
   [IN.XOR]: XOR,
+  [IN.INC]: INC,
+  [IN.DEC]: DEC,
 };
