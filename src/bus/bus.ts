@@ -14,27 +14,25 @@ import { GameBoy } from "../emu/emu";
 // 0xFF00 - 0xFF7F : I/O Registers
 // 0xFF80 - 0xFFFE : Zero Page
 
-export class Bus {
-  private emu: GameBoy;
-
-  constructor(gameBoy: GameBoy) {
-    this.emu = gameBoy;
+export function busRead(this: GameBoy, address: number): number {
+  if (address <= 0x7FFF) {
+    return this.cartridge.cartridgeRead(address);
+  }
+  if (address <= 0xBFFF) {
+    // 卡带ROM和RAM区域
+    return this.cartridge.cartridgeRead(address);
   }
 
-  public readByte(address: number): number {
-    // 卡带ROM和RAM区域
-    if (address < 0x8000) {
-      return this.emu.cartridge.readByte(address);
-    }
+  return 0xff;
+}
 
-    return 0xff;
+export function busWrite(this: GameBoy, address: number, value: number): void {
+  if (address <= 0x7FFF) {
+    return;
   }
-
-  public writeByte(address: number, value: number): void {
+  if (address <= 0xBFFF) {
     // 卡带ROM和RAM区域
-    if (address < 0x8000) {
-      this.emu.cartridge.writeByte(address, value);
-      return;
-    }
+    this.cartridge.cartridgeWrite(address, value);
+    return;
   }
 }

@@ -317,10 +317,10 @@ export function instructionDisplay(this: CPU) {
   case AM.R_HLD:
     return `${inst.type} ${inst.registerType1},(${inst.registerType2}-)`;
 
-  case AM.R_HLI_R:
+  case AM.HLI_R:
     return `${inst.type} (${inst.registerType1}+),${inst.registerType2}`;
 
-  case AM.R_HLD_R:
+  case AM.HLD_R:
     return `${inst.type} (${inst.registerType1}-),${inst.registerType2}`;
 
   case AM.A8_R:

@@ -24,9 +24,17 @@ export enum CartridgeType {
 }
 
 export interface CartridgeInfo {
+  entry: Uint8Array;
+  logo: Uint8Array;
   title: string;
+  newLicenseCode: Uint8Array;
+  sgbFlag: number;
   type: CartridgeType;
   romSize: number;
   ramSize: number;
+  destinationCode: number;
+  licenseCode: number;
   version: number;
+  checksum: number;
+  globalCheckSum: Uint8Array;
 }

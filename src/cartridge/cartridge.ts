@@ -94,17 +94,20 @@ export class Cartridge {
   private cartridgeInfo: CartridgeInfo | null = null;
 
   public loadROM(data: Uint8Array): void {
+
     this.rom = data;
     this.cartridgeInfo = this.parseCartridgeInfo();
+
+    let checkSum = 0;
+    for (let i = 0x0134; i <= 0x014c; i++) {
+      checkSum = checkSum - this.rom[i] - 1;
+    }
+
+    if ((checkSum & 0xFF) !== this.cartridgeInfo?.checksum) {
+      throw new Error("Invalid cartridge checksum");
+    }
+
     this.initializeMBC();
-  }
-
-  public readByte(address: number): number {
-    return this.mbc?.readByte(address) ?? 0xff;
-  }
-
-  public writeByte(address: number, value: number): void {
-    this.mbc?.writeByte(address, value);
   }
 
   private parseCartridgeInfo(): CartridgeInfo {
@@ -113,19 +116,24 @@ export class Cartridge {
       .join("")
       .replace(/\0+$/, "");
 
-    const type = this.rom[0x147] as CartridgeType;
-    const romSize = 32768 << this.rom[0x148];
-
     // RAM大小查找表
-    const ramSizes = [0, 2048, 8192, 32768, 131072];
+    const ramSizes = [0, null, 8, 32, 128, 64];
     const ramSize = ramSizes[this.rom[0x149]] || 0;
 
     return {
-      title,
-      type,
-      romSize,
-      ramSize,
-      version: this.rom[0x14c],
+      title: title,
+      entry: this.rom.slice(0x0100, 0x0104),
+      logo: this.rom.slice(0x0104, 0x0134),
+      newLicenseCode: this.rom.slice(0x0143, 0x0146),
+      sgbFlag: this.rom[0x0146],
+      type: this.rom[0x0147] as CartridgeType,
+      romSize: 32 << this.rom[0x0148],
+      ramSize: ramSize,
+      destinationCode: this.rom[0x014a],
+      licenseCode: this.rom[0x014a],
+      version: this.rom[0x014c],
+      checksum: this.rom[0x014d],
+      globalCheckSum: this.rom.slice(0x014e, 0x014f),
     };
   }
 
@@ -177,5 +185,17 @@ export class Cartridge {
 
   public loadSaveData(data: Uint8Array): void {
     this.mbc?.loadRamData(data);
+  }
+
+  public cartridgeRead(address: number) {
+    if (address <= 0x7fff) {
+      return this.rom[address];
+    }
+
+    return 0xff;
+  }
+
+  public cartridgeWrite(address: number, value: number) {
+    throw new Error("Not implemented");
   }
 }

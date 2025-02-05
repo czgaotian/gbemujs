@@ -42,9 +42,9 @@ function INC(this: CPU) {
   // 如果是对内存(HL)操作,则从总线读写数据
   if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR)
   {
-    val = this.mmu.readByte(this.registers.cpuReadRegister(RegisterType.HL)) + 1;
+    val = this.emulator.busRead(this.registers.cpuReadRegister(RegisterType.HL)) + 1;
     val &= 0xFF;
-    this.mmu.writeByte(this.registers.cpuReadRegister(RegisterType.HL), val);
+    this.emulator.busWrite(this.registers.cpuReadRegister(RegisterType.HL), val);
   }
   else
   {
@@ -75,8 +75,8 @@ function DEC(this: CPU) {
 
   if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR)
   {
-    val = this.mmu.readByte(this.registers.cpuReadRegister(RegisterType.HL)) - 1;
-    this.mmu.writeByte(this.registers.cpuReadRegister(RegisterType.HL), val);
+    val = this.emulator.busRead(this.registers.cpuReadRegister(RegisterType.HL)) - 1;
+    this.emulator.busWrite(this.registers.cpuReadRegister(RegisterType.HL), val);
   }
   else
   {

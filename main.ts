@@ -2,7 +2,7 @@ import GameBoy from "./src";
 
 const gb = new GameBoy();
 
-console.log(gb);
+console.log("Emulator init:", gb);
 
 const fileInput = document.getElementById('rom-file') as HTMLInputElement;
 

@@ -4,11 +4,9 @@ import { instructionMap, instructionDisplay } from './instruction';
 import { bitSet } from '../utils';
 import { processorMap } from './processor';
 import { GameBoy } from '../emu/emu';
-import { Bus } from '../bus/bus';
 
 export class CPU {
   public emulator: GameBoy;
-  public bus: Bus;
   public registers: Registers;
 
   public opcode: number = 0;
@@ -22,7 +20,6 @@ export class CPU {
 
   constructor(emulator: GameBoy) {
     this.emulator = emulator;
-    this.bus = emulator.bus;
     this.registers = new Registers();
   }
 
@@ -31,7 +28,7 @@ export class CPU {
   }
 
   private fetchInstruction(): void {
-    this.opcode = this.bus.readByte(this.registers.pc++);
+    this.opcode = this.emulator.busRead(this.registers.pc++);
     this.instruction = instructionMap[this.opcode];
   }
 
@@ -57,15 +54,15 @@ export class CPU {
         return;
 
       case AddressMode.R_D8:
-        this.fetchedData = this.bus.readByte(this.registers.pc);
+        this.fetchedData = this.emulator.busRead(this.registers.pc);
         this.registers.pc++;
         return;
 
       case AddressMode.D16:
-        const lo = this.bus.readByte(this.registers.pc);
+        const lo = this.emulator.busRead(this.registers.pc);
         this.registers.pc++;
 
-        const hi = this.bus.readByte(this.registers.pc);
+        const hi = this.emulator.busRead(this.registers.pc);
         this.registers.pc++;
 
         this.fetchedData = lo | (hi << 8);

@@ -1,5 +1,5 @@
 import { CPU } from '../cpu/cpu';
-import { Bus } from '../bus/bus';
+import { busRead, busWrite } from '../bus/bus';
 import { PPU } from '../ppu/ppu';
 import { APU } from '../apu/apu';
 import { Joypad } from '../joypad/joypad';
@@ -8,7 +8,6 @@ import { Cartridge } from '../cartridge/cartridge';
 export class GameBoy {
   public cpu: CPU;
   public cartridge: Cartridge;
-  public bus: Bus;
   public ppu: PPU;
   public apu: APU;
   public joypad: Joypad;
@@ -19,7 +18,6 @@ export class GameBoy {
 
   constructor() {
     this.cartridge = new Cartridge();
-    this.bus = new Bus(this);
     this.cpu = new CPU(this);
     this.ppu = new PPU(this);
     this.apu = new APU();
@@ -61,4 +59,7 @@ export class GameBoy {
       }
     }
   }
+
+  public busRead = busRead.bind(this);
+  public busWrite = busWrite.bind(this);
 }
