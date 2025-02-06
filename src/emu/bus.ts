@@ -1,4 +1,4 @@
-import { GameBoy } from "../emu/emu";
+import { GameBoy } from "./emu";
 
 // 0x0000 - 0x3FFF : ROM Bank 0
 // 0x4000 - 0x7FFF : ROM Bank 1 - Switchable
@@ -18,11 +18,19 @@ export function busRead(this: GameBoy, address: number): number {
   if (address <= 0x7FFF) {
     return this.cartridge.cartridgeRead(address);
   }
+  if (address >= 0x8000 && address <= 0x97FF) {
+    return this.vram[address - 0x8000];
+  }
   if (address <= 0xBFFF) {
     // 卡带ROM和RAM区域
     return this.cartridge.cartridgeRead(address);
   }
-
+  if (address >= 0xC000 && address <= 0xCFFF) {
+    return this.wram[address - 0xC000];
+  }
+  if (address >= 0xFF80 && address <= 0xFFFE) {
+    return this.hram[address - 0xFF80];
+  }
   return 0xff;
 }
 
@@ -30,9 +38,21 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
   if (address <= 0x7FFF) {
     return;
   }
+  if (address >= 0x8000 && address <= 0x97FF) {
+    this.vram[address - 0x8000] = value;
+    return;
+  }
   if (address <= 0xBFFF) {
     // 卡带ROM和RAM区域
     this.cartridge.cartridgeWrite(address, value);
+    return;
+  }
+  if (address >= 0xC000 && address <= 0xCFFF) {
+    this.wram[address - 0xC000] = value;    
+    return;
+  }
+  if (address >= 0xFF80 && address <= 0xFFFE) {
+    this.hram[address - 0xFF80] = value;
     return;
   }
 }

@@ -27,6 +27,19 @@ export class CPU {
     this.registers.reset();
   }
 
+  public step(): boolean {
+    if (!this.halted) {
+      this.fetchInstruction();
+      if (!this.instruction) return false;
+      console.log(`${instructionDisplay.call(this)}`);
+      this.fetchData();
+      this.executeInstruction();
+    } else {
+      this.emulator.tick(1);
+    }
+    return true;
+  }
+
   private fetchInstruction(): void {
     this.opcode = this.emulator.busRead(this.registers.pc++);
     this.instruction = instructionMap[this.opcode];
@@ -80,18 +93,6 @@ export class CPU {
     }
     processor.call(this);
   }
-
-  public step(): boolean {
-    if (!this.halted) {
-      this.fetchInstruction();
-      if (!this.instruction) return false;
-      console.log(`${instructionDisplay.call(this)}`);
-      this.fetchData();
-      this.executeInstruction();
-    }
-    return true;
-  }
-
 
   public cpuSetFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
     if (z != -1) {

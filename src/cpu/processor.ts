@@ -24,7 +24,7 @@ function XOR(this: CPU) {
 function JP( this: CPU) {
   if (this.checkCondition()) {
     this.registers.pc = this.fetchedData;
-    this.emulator.emulatorCycle(1);
+    this.emulator.tick(1);
   }
 }
 
@@ -36,7 +36,7 @@ function INC(this: CPU) {
   let val = this.registers.cpuReadRegister(this.instruction?.registerType1) + 1;
 
   if (this.instruction?.addressMode === AddressMode.R_D16) {
-    this.emulator.emulatorCycle(1);
+    this.emulator.tick(1);
   }
 
   // 如果是对内存(HL)操作,则从总线读写数据
@@ -70,7 +70,7 @@ function DEC(this: CPU) {
   let val = this.registers.cpuReadRegister(this.instruction?.registerType1) - 1;
 
   if (this.instruction?.addressMode === AddressMode.R_D16) {
-    this.emulator.emulatorCycle(1);
+    this.emulator.tick(1);
   }
 
   if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR)
