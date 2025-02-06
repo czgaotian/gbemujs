@@ -1,5 +1,5 @@
 import { Registers } from './registers';
-import { AddressMode, Instruction, ConditionType, Flag } from '../types';
+import { AddressMode, Instruction, ConditionType, Flag, RegisterType } from '../types';
 import { instructionMap, instructionDisplay } from './instruction';
 import { bitSet } from '../utils';
 import { processorMap } from './processor';
@@ -61,9 +61,7 @@ export class CPU {
         if (!this.instruction.registerType1) {
           throw new Error('Register type is required for R mode');
         }
-        this.fetchedData = this.registers.cpuReadRegister(
-          this.instruction.registerType1
-        );
+        this.fetchedData = this.cpuReadRegister(this.instruction.registerType1);
         return;
 
       case AddressMode.R_D8:
@@ -95,21 +93,15 @@ export class CPU {
   }
 
   public cpuSetFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
-    if (z != -1) {
-      this.registers.f = bitSet(this.registers.f, 7, !!z);
-    }
+    this.registers.setFlags(z, n, h, c);
+  }
 
-    if (n != -1) {
-      this.registers.f = bitSet(this.registers.f, 6, !!n);
-    }
+  public cpuReadRegister(registerType: RegisterType): number {
+    return this.registers.readRegister(registerType);
+  }
 
-    if (h != -1) {
-      this.registers.f = bitSet(this.registers.f, 5, !!h);
-    }
-
-    if (c != -1) {
-      this.registers.f = bitSet(this.registers.f, 4, !!c);
-    }
+  public cpuSetRegister(registerType: RegisterType, val: number) {
+    this.registers.setRegister(registerType, val);
   }
 
   public checkCondition(): boolean {

@@ -1,5 +1,6 @@
 import { reverse } from 'node:dns';
-import { RegisterType } from '../types';
+import { Flag, RegisterType } from '../types';
+import { bitSet } from '../utils';
 
 export class Registers {
   // 8位寄存器
@@ -31,7 +32,7 @@ export class Registers {
   }
 
   // 获取16位组合寄存器
-  public cpuReadRegister(registerType: RegisterType): number {
+  public readRegister(registerType: RegisterType): number {
     switch (registerType) {
       case RegisterType.A:
         return this.a;
@@ -66,7 +67,7 @@ export class Registers {
     }
   }
 
-  public cpuSetRegister(registerType: RegisterType, val: number) {
+  public setRegister(registerType: RegisterType, val: number) {
     switch (registerType) {
       case RegisterType.A:
         this.a = val & 0xFF;
@@ -118,6 +119,24 @@ export class Registers {
         break;
       case RegisterType.NONE:
         break;
+    }
+  }
+
+  public setFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
+    if (z != -1) {
+      this.f = bitSet(this.f, 7, !!z);
+    }
+
+    if (n != -1) {
+      this.f = bitSet(this.f, 6, !!n);
+    }
+
+    if (h != -1) {
+      this.f = bitSet(this.f, 5, !!h);
+    }
+
+    if (c != -1) {
+      this.f = bitSet(this.f, 4, !!c);
     }
   }
 

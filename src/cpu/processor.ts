@@ -1,7 +1,9 @@
 import { InstructionType as IN, InstructionType, AddressMode, RegisterType } from '../types';
 import { CPU } from './cpu';
 
-function NOP() {}
+function NOP(this: CPU) {
+  this.emulator.tick(1);
+}
 
 function NONE() {
   console.log('INVALID INSTRUCTION!\n');
@@ -13,7 +15,47 @@ function DI(this: CPU) {
 }
 
 function LD(this: CPU) {
-  // TODO...
+  if (this.destinationIsMemory) // 写入内存 (dest_is_mem 为 true)
+  {
+    // LD (BC), A for instance...
+    if (this.instruction?.registerType2 === RegisterType.BC) {
+      this.emulator.tick(1); // 16位数据写入，需要额外周期
+      this.emulator.busWrite(this.memoryDestination, this.fetchedData);
+    }
+    else {
+      this.emulator.busWrite(this.memoryDestination, this.fetchedData);
+    }
+
+    this.emulator.tick(1);
+
+    return;
+  }
+
+  /*
+  LD HL,SP+r8
+  这个指令将SP加上r8的结果存入HL寄存器。它会设置以下标志位:
+
+  零标志(Z)和负标志(N)被清零
+  半进位标志(H):低4位相加≥0x10时置1
+  进位标志(C):低8位相加≥0x100时置1
+  */
+  if (this.instruction?.addressMode === AddressMode.HL_SPR) {
+    const hflag = (this.cpuReadRegister(this.instruction?.registerType2) & 0xF) +
+      (this.fetchedData & 0xF) >=
+      0x10;
+
+    const cflag = (this.cpuReadRegister(this.instruction?.registerType2) & 0xFF) +
+      (this.fetchedData & 0xFF) >=
+      0x100;
+
+    this.cpuSetFlags(0, 0, hflag, cflag);
+    this.cpuSetRegister(this.instruction?.registerType1,
+      this.cpuReadRegister(this.instruction?.registerType2) + this.fetchedData);
+
+    return;
+  }
+
+  this.cpuSetRegister(this.instruction?.registerType1, this.fetchedData); // 普通寄存器加载
 }
 
 function XOR(this: CPU) {
@@ -21,7 +63,7 @@ function XOR(this: CPU) {
   this.cpuSetFlags(this.registers.a == 0, false, false, false);
 }
 
-function JP( this: CPU) {
+function JP(this: CPU) {
   if (this.checkCondition()) {
     this.registers.pc = this.fetchedData;
     this.emulator.tick(1);
@@ -33,28 +75,25 @@ function INC(this: CPU) {
     throw new Error('Register type is required for INC instruction');
   }
 
-  let val = this.registers.cpuReadRegister(this.instruction?.registerType1) + 1;
+  let val = this.cpuReadRegister(this.instruction?.registerType1) + 1;
 
   if (this.instruction?.addressMode === AddressMode.R_D16) {
     this.emulator.tick(1);
   }
 
   // 如果是对内存(HL)操作,则从总线读写数据
-  if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR)
-  {
-    val = this.emulator.busRead(this.registers.cpuReadRegister(RegisterType.HL)) + 1;
+  if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR) {
+    val = this.emulator.busRead(this.cpuReadRegister(RegisterType.HL)) + 1;
     val &= 0xFF;
-    this.emulator.busWrite(this.registers.cpuReadRegister(RegisterType.HL), val);
+    this.emulator.busWrite(this.cpuReadRegister(RegisterType.HL), val);
   }
-  else
-  {
-    this.registers.cpuSetRegister(this.instruction?.registerType1, val);
-    val = this.registers.cpuReadRegister(this.instruction?.registerType1);
+  else {
+    this.cpuSetRegister(this.instruction?.registerType1, val);
+    val = this.cpuReadRegister(this.instruction?.registerType1);
   }
 
   // 检查操作码最后两位是否为 11(0x03), 如果是则不更新标志位
-  if ((this.opcode & 0x03) == 0x03)
-  {
+  if ((this.opcode & 0x03) == 0x03) {
     return;
   }
 
@@ -67,26 +106,23 @@ function DEC(this: CPU) {
     throw new Error('Register type is required for DEC instruction');
   }
 
-  let val = this.registers.cpuReadRegister(this.instruction?.registerType1) - 1;
+  let val = this.cpuReadRegister(this.instruction?.registerType1) - 1;
 
   if (this.instruction?.addressMode === AddressMode.R_D16) {
     this.emulator.tick(1);
   }
 
-  if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR)
-  {
-    val = this.emulator.busRead(this.registers.cpuReadRegister(RegisterType.HL)) - 1;
-    this.emulator.busWrite(this.registers.cpuReadRegister(RegisterType.HL), val);
+  if (this.instruction?.registerType1 === RegisterType.HL && this.instruction?.addressMode === AddressMode.MR) {
+    val = this.emulator.busRead(this.cpuReadRegister(RegisterType.HL)) - 1;
+    this.emulator.busWrite(this.cpuReadRegister(RegisterType.HL), val);
   }
-  else
-  {
-    this.registers.cpuSetRegister(this.instruction?.registerType1, val);
-    val = this.registers.cpuReadRegister(this.instruction?.registerType1);
+  else {
+    this.cpuSetRegister(this.instruction?.registerType1, val);
+    val = this.cpuReadRegister(this.instruction?.registerType1);
   }
 
   // 检查操作码是否匹配模式 xxxx1011(0x0B)。如果是，则直接返回不更新标志位
-  if ((this.opcode & 0x0B) == 0x0B)
-  {
+  if ((this.opcode & 0x0B) == 0x0B) {
     return;
   }
 
