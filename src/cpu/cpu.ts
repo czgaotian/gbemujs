@@ -6,6 +6,7 @@ import { fetchData } from './fetch';
 import { GameBoy } from '../emu/emu';
 import { stackPush, stackPush16, stackPop, stackPop16 } from './stack';
 import { setFlags, setRegister, readRegister, setRegister8Bit, readRegister8Bit } from './registers'
+import { handleInterrupts } from './interrupts';
 
 export class CPU {
   public emulator: GameBoy;
@@ -16,8 +17,9 @@ export class CPU {
   public memoryDestination: number = 0;
   public destinationIsMemory: boolean = false;
   public halted: boolean = false;
-  public stepping: boolean = false;
-  public intMasterEnabled: boolean = false;
+
+  public interruptMasterEnabled: boolean = false;
+  public interruptMasterEnablingCountdown: number = 0;
 
   // 8位寄存器
   public a: number = 0;
@@ -49,18 +51,37 @@ export class CPU {
 
     this.sp = 0xfffe;
     this.pc = 0x100; // 0x100 是游戏程序的入口点
+
+    this.halted = false;
+    this.interruptMasterEnabled = false;
+    this.interruptMasterEnablingCountdown = 0;
   }
 
-  public step(): boolean {
+  public step() {
     if (!this.halted) {
-      this.fetchInstruction();
-      this.fetchData();
-      this.execute();
+      if (this.interruptMasterEnabled && (this.emulator.intEnableFlags & this.emulator.intFlags)) {
+        this.handleInterrupts();
+      } else {
+        this.fetchInstruction();
+        this.emulator.tick(1);
+        this.fetchData();
+        this.execute();
+      }
     } else {
       this.emulator.tick(1);
+      if (this.emulator.intEnableFlags & this.emulator.intFlags) {
+        this.halted = false;
+      }
     }
-    return true;
+    if (this.interruptMasterEnablingCountdown) {
+      --this.interruptMasterEnablingCountdown;
+      if (!this.interruptMasterEnablingCountdown) {
+        this.interruptMasterEnabled = true;
+      }
+    }
   }
+
+  private handleInterrupts = handleInterrupts.bind(this);
 
   private fetchInstruction(): void {
     this.opcode = this.emulator.busRead(this.pc++);
@@ -110,4 +131,13 @@ export class CPU {
   public stackPush16 = stackPush16.bind(this);
   public stackPop = stackPop.bind(this);
   public stackPop16 = stackPop16.bind(this);
+
+  public enableInterruptMaster() {
+    this.interruptMasterEnablingCountdown = 2;
+  }
+
+  public disableInterruptMaster() {
+    this.interruptMasterEnabled = false;
+    this.interruptMasterEnablingCountdown = 0;
+  }
 }

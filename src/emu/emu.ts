@@ -21,6 +21,9 @@ export class GameBoy {
   public wram: Uint8Array;
   public hram: Uint8Array;
 
+  public intFlags: number;
+  public intEnableFlags: number;
+
   constructor() {
     this.cartridge = new Cartridge();
     this.cpu = new CPU(this);
@@ -33,6 +36,11 @@ export class GameBoy {
     this.vram = new Uint8Array(0x2000); // video ram
     this.wram = new Uint8Array(0x2000); // working ram
     this.hram = new Uint8Array(0x80); // high ram
+
+    // 0xFF0F - The interruption flags.
+    this.intFlags = 0;
+    // 0xFFFF - The interruption enabling flags.
+    this.intEnableFlags = 0;
   }
 
   public loadROM(data: Uint8Array): void {
@@ -49,6 +57,9 @@ export class GameBoy {
     this.cpu.reset();
     this.wram.fill(0);
     this.hram.fill(0);
+
+    this.intFlags = 0;
+    this.intEnableFlags = 0;
   }
 
   public start(data: Uint8Array): void {

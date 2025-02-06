@@ -110,3 +110,11 @@ export interface Instruction {
 }
 
 export type Flag = true | false | 1 | 0 | -1;
+
+export enum InterruptType {
+  VBLANK = 1,
+  LCD_STAT = 2,
+  TIMER = 4,
+  SERIAL = 8,
+  JOYPAD = 16
+}

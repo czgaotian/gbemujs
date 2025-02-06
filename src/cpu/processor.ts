@@ -223,11 +223,11 @@ function CP(this: CPU) {
 }
 
 function DI(this: CPU) {
-  this.intMasterEnabled = false;
+  this.disableInterruptMaster();
 }
 
 function EI(this: CPU) {
-  this.intMasterEnabled = true;
+  this.enableInterruptMaster();
 }
 
 function HALT(this: CPU) {
@@ -313,11 +313,11 @@ function checkCondition(cpu: CPU): boolean {
 
   switch (cpu.instruction.conditionType) {
     case CT.C:
-      return cpu.flagC;
+      return !!cpu.flagC;
     case CT.NC:
       return !cpu.flagC;
     case CT.Z:
-      return cpu.flagZ;
+      return !!cpu.flagZ;
     case CT.NZ:
       return !cpu.flagZ;
     default:
@@ -378,7 +378,7 @@ function RET(this: CPU) {
 }
 
 function RETI(this: CPU) {
-  this.intMasterEnabled = true;
+  this.enableInterruptMaster();
   RET.call(this);
 }
 
@@ -564,7 +564,7 @@ function ADD(this: CPU) {
 }
 
 function STOP(this: CPU) {
-  throw new Error('STOP instruction not implemented');
+  this.emulator.paused = true;
 }
 
 // Decimal Adjust Accumulator, 通常用于处理运算后的调整
