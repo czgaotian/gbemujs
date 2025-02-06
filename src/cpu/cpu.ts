@@ -1,9 +1,10 @@
 import { Registers } from './registers';
 import { AddressMode, Instruction, ConditionType, Flag, RegisterType } from '../types';
-import { instructionMap, instructionDisplay } from './instruction';
-import { bitSet } from '../utils';
+import { instructionMap } from './instruction';
+import { getInstructionTypeName, instructionDisplay } from '../utils';
 import { processorMap } from './processor';
 import { GameBoy } from '../emu/emu';
+import { stackPush, stackPush16, stackPop, stackPop16 } from './stack';
 
 export class CPU {
   public emulator: GameBoy;
@@ -30,10 +31,8 @@ export class CPU {
   public step(): boolean {
     if (!this.halted) {
       this.fetchInstruction();
-      if (!this.instruction) return false;
-      console.log(`${instructionDisplay.call(this)}`);
       this.fetchData();
-      this.executeInstruction();
+      this.execute();
     } else {
       this.emulator.tick(1);
     }
@@ -43,6 +42,10 @@ export class CPU {
   private fetchInstruction(): void {
     this.opcode = this.emulator.busRead(this.registers.pc++);
     this.instruction = instructionMap[this.opcode];
+    if (!this.instruction) {
+      throw new Error(`Instruction not found for opcode: ${this.opcode}`);
+    }
+    console.log(`${instructionDisplay.call(this)}`);
   }
 
   private fetchData(): void {
@@ -81,13 +84,13 @@ export class CPU {
     }
   }
 
-  private executeInstruction(): void {
+  private execute(): void {
     if (!this.instruction) {
       throw new Error('Instruction not found');
     }
     const processor = processorMap[this.instruction.type];
     if (!processor) {
-      throw new Error(`Processor not found for instruction: ${this.instruction?.type}`);
+      throw new Error(`Processor not found for instruction: ${getInstructionTypeName(this.instruction.type)}`);
     }
     processor.call(this);
   }
@@ -104,22 +107,8 @@ export class CPU {
     this.registers.setRegister(registerType, val);
   }
 
-  public checkCondition(): boolean {
-    if (!this.instruction?.conditionType) {
-      return false;
-    }
-
-    switch (this.instruction.conditionType) {
-      case ConditionType.C:
-        return this.registers.flagC;
-      case ConditionType.NC:
-        return !this.registers.flagC;
-      case ConditionType.Z:
-        return this.registers.flagZ;
-      case ConditionType.NZ:
-        return !this.registers.flagZ;
-      default:
-        return false;
-    }
-  }
+  public stackPush = stackPush.bind(this);
+  public stackPush16 = stackPush16.bind(this);
+  public stackPop = stackPop.bind(this);
+  public stackPop16 = stackPop16.bind(this);
 }

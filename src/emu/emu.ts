@@ -1,5 +1,5 @@
 import { CPU } from '../cpu/cpu';
-import { busRead, busWrite } from './bus';
+import { busRead, busWrite, busRead16, busWrite16 } from './bus';
 import { PPU } from '../ppu/ppu';
 import { APU } from '../apu/apu';
 import { Joypad } from '../joypad/joypad';
@@ -81,4 +81,6 @@ export class GameBoy {
 
   public busRead = busRead.bind(this);
   public busWrite = busWrite.bind(this);
+  public busRead16 = busRead16.bind(this);
+  public busWrite16 = busWrite16.bind(this);
 }

@@ -56,3 +56,14 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
     return;
   }
 }
+
+export function busRead16(this: GameBoy, address: number): number {
+  const low = this.busRead(address);
+  const high = this.busRead(address + 1);
+  return (high << 8) | low;
+}
+
+export function busWrite16(this: GameBoy, address: number, value: number): void {
+  this.busWrite(address + 1, (value >> 8) & 0xFF);
+  this.busWrite(address, value & 0xFF);
+}

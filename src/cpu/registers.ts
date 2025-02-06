@@ -1,4 +1,3 @@
-import { reverse } from 'node:dns';
 import { Flag, RegisterType } from '../types';
 import { bitSet } from '../utils';
 
