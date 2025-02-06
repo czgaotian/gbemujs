@@ -1,14 +1,14 @@
-import { Registers } from './registers';
 import { AddressMode, Instruction, ConditionType, Flag, RegisterType } from '../types';
 import { instructionMap } from './instruction';
-import { getInstructionTypeName, instructionDisplay } from '../utils';
+import { bitGet, getInstructionTypeName, instructionDisplay } from '../utils';
 import { processorMap } from './processor';
+import { fetchData } from './fetch';
 import { GameBoy } from '../emu/emu';
 import { stackPush, stackPush16, stackPop, stackPop16 } from './stack';
+import { setFlags, setRegister, readRegister, setRegister8Bit, readRegister8Bit } from './registers'
 
 export class CPU {
   public emulator: GameBoy;
-  public registers: Registers;
 
   public opcode: number = 0;
   public fetchedData: number = 0;
@@ -19,13 +19,36 @@ export class CPU {
   public stepping: boolean = false;
   public intMasterEnabled: boolean = false;
 
+  // 8位寄存器
+  public a: number = 0;
+  public b: number = 0;
+  public c: number = 0;
+  public d: number = 0;
+  public e: number = 0;
+  public h: number = 0;
+  public l: number = 0;
+  public f: number = 0;
+
+  // 16位程序计数器和栈指针
+  public pc: number = 0;
+  public sp: number = 0;
+
   constructor(emulator: GameBoy) {
     this.emulator = emulator;
-    this.registers = new Registers();
   }
 
   public reset(): void {
-    this.registers.reset();
+    this.a = 0x01;
+    this.b = 0x00;
+    this.c = 0x13;
+    this.d = 0x00;
+    this.e = 0xd8;
+    this.h = 0x01;
+    this.l = 0x4d;
+    this.f = 0xb0;
+
+    this.sp = 0xfffe;
+    this.pc = 0x100; // 0x100 是游戏程序的入口点
   }
 
   public step(): boolean {
@@ -40,49 +63,15 @@ export class CPU {
   }
 
   private fetchInstruction(): void {
-    this.opcode = this.emulator.busRead(this.registers.pc++);
+    this.opcode = this.emulator.busRead(this.pc++);
     this.instruction = instructionMap[this.opcode];
     if (!this.instruction) {
-      throw new Error(`Instruction not found for opcode: ${this.opcode}`);
+      throw new Error(`Instruction not found for opcode: 0x${this.opcode.toString(16)}`);
     }
     console.log(`${instructionDisplay.call(this)}`);
   }
 
-  private fetchData(): void {
-    this.memoryDestination = 0;
-    this.destinationIsMemory = false;
-
-    if (!this.instruction) {
-      return;
-    }
-
-    switch (this.instruction.addressMode) {
-      case AddressMode.IMPLIED:
-        return;
-
-      case AddressMode.R:
-        if (!this.instruction.registerType1) {
-          throw new Error('Register type is required for R mode');
-        }
-        this.fetchedData = this.cpuReadRegister(this.instruction.registerType1);
-        return;
-
-      case AddressMode.R_D8:
-        this.fetchedData = this.emulator.busRead(this.registers.pc);
-        this.registers.pc++;
-        return;
-
-      case AddressMode.D16:
-        const lo = this.emulator.busRead(this.registers.pc);
-        this.registers.pc++;
-
-        const hi = this.emulator.busRead(this.registers.pc);
-        this.registers.pc++;
-
-        this.fetchedData = lo | (hi << 8);
-        return;
-    }
-  }
+  private fetchData = fetchData.bind(this);
 
   private execute(): void {
     if (!this.instruction) {
@@ -95,16 +84,26 @@ export class CPU {
     processor.call(this);
   }
 
-  public cpuSetFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
-    this.registers.setFlags(z, n, h, c);
+  public readRegister = readRegister.bind(this);
+  public setRegister = setRegister.bind(this);
+  public readRegister8Bit = readRegister8Bit.bind(this);
+  public setRegister8Bit = setRegister8Bit.bind(this);
+  public setFlags = setFlags.bind(this);
+
+  public get flagZ() {
+    return bitGet(this.f, 7);
   }
 
-  public cpuReadRegister(registerType: RegisterType): number {
-    return this.registers.readRegister(registerType);
+  public get flagC() {
+    return bitGet(this.f, 4);
   }
 
-  public cpuSetRegister(registerType: RegisterType, val: number) {
-    this.registers.setRegister(registerType, val);
+  public get flagH() {
+    return bitGet(this.f, 2);
+  }
+
+  public get flagN() {
+    return bitGet(this.f, 6);
   }
 
   public stackPush = stackPush.bind(this);

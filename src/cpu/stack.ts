@@ -1,8 +1,8 @@
 import { CPU } from "./cpu";
 
 export function stackPush(this: CPU, data: number) {
-  this.registers.sp--;
-  this.emulator.busWrite(this.registers.sp, data);
+  this.sp--;
+  this.emulator.busWrite(this.sp, data);
 }
 
 export function stackPush16(this: CPU, data: number) {
@@ -11,7 +11,7 @@ export function stackPush16(this: CPU, data: number) {
 }
 
 export function stackPop(this: CPU) {
-  return this.emulator.busRead(this.registers.sp++);
+  return this.emulator.busRead(this.sp++);
 }
 
 export function stackPop16(this: CPU) {
