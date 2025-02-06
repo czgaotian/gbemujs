@@ -609,7 +609,6 @@ function CCF(this: CPU) {
   this.setFlags(-1, 0, 0, !!(this.flagC ^ 1));
 }
 
-
 export const processorMap: Record<IN, Function> = {
   [IN.NONE]: NONE,
   [IN.NOP]: NOP,

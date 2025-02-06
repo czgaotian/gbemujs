@@ -39,7 +39,7 @@ export class CPU {
     this.emulator = emulator;
   }
 
-  public reset(): void {
+  public init(): void {
     this.a = 0x01;
     this.b = 0x00;
     this.c = 0x13;

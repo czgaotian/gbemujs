@@ -28,6 +28,18 @@ export function busRead(this: GameBoy, address: number): number {
   if (address >= 0xC000 && address <= 0xCFFF) {
     return this.wram[address - 0xC000];
   }
+  if (address >= 0xFF01 && address <= 0xFF02) {
+    // 串口
+    return this.serial.read(address);
+  }
+  if (address >= 0xFF04 && address <= 0xFF07) {
+    // 定时器
+    return this.timer.read(address);
+  }
+  if (address == 0xFF0F) {
+    // IF
+    return this.intFlags | 0xE0;
+  }
   if (address >= 0xFF80 && address <= 0xFFFE) {
     return this.hram[address - 0xFF80];
   }
@@ -49,6 +61,21 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
   }
   if (address >= 0xC000 && address <= 0xCFFF) {
     this.wram[address - 0xC000] = value;    
+    return;
+  }
+  if (address >= 0xFF01 && address <= 0xFF02) {
+    // 串口
+    this.serial.write(address, value);
+    return;
+  }
+  if (address >= 0xFF04 && address <= 0xFF07) {
+    // 定时器
+    this.timer.write(address, value);
+    return;
+  }
+  if (address == 0xFF0F) {
+    // IF
+    this.intFlags = value & 0x1F;
     return;
   }
   if (address >= 0xFF80 && address <= 0xFFFE) {

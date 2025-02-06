@@ -4,6 +4,8 @@ import { PPU } from '../ppu/ppu';
 import { APU } from '../apu/apu';
 import { Joypad } from '../joypad/joypad';
 import { Cartridge } from '../cartridge/cartridge';
+import { Timer } from '../timer/timer';
+import { Serial } from '../serial/serial';
 
 export class GameBoy {
   public cpu: CPU;
@@ -11,6 +13,8 @@ export class GameBoy {
   public ppu: PPU;
   public apu: APU;
   public joypad: Joypad;
+  public timer: Timer;
+  public serial: Serial;
 
   public lastTime: number;
   public clockCycles: number = 0;
@@ -30,6 +34,8 @@ export class GameBoy {
     this.ppu = new PPU(this);
     this.apu = new APU();
     this.joypad = new Joypad();
+    this.timer = new Timer();
+    this.serial = new Serial(this);
 
     this.lastTime = performance.now();
 
@@ -46,15 +52,18 @@ export class GameBoy {
   public loadROM(data: Uint8Array): void {
     this.cartridge.loadROM(data);
     console.log("Loaded cartridge:", this.cartridge.getCartridgeInfo());
-    this.reset();
+    this.init();
   }
 
-  public reset(): void {
+  public init(): void {
     this.paused = false;
     this.clockCycles = 0;
     this.lastTime = performance.now();
 
-    this.cpu.reset();
+    this.cpu.init();
+    this.timer.init();
+    this.serial.init();
+
     this.wram.fill(0);
     this.hram.fill(0);
 
@@ -86,6 +95,11 @@ export class GameBoy {
     for (let i = 0; i < cpuCycle; i++) {
       for (let j = 0; j < 4; j++) {
         this.clockCycles++;
+        this.timer.tick();
+        if ((this.clockCycles % 512) == 0) {
+          // Serial is ticked at 8192Hz.
+          this.serial.tick();
+        }
       }
     }
   }
