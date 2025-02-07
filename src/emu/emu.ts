@@ -76,6 +76,14 @@ export class GameBoy {
     requestAnimationFrame(this.emulatorLoop.bind(this));
   }
 
+  public pause(): void {
+    this.paused = true;
+  }
+
+  public resume(): void {
+    this.paused = false;
+  }
+
   public emulatorLoop(currentTime: number) {
     const deltaTime = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;
@@ -87,8 +95,8 @@ export class GameBoy {
     const endCycles = this.clockCycles + frameCycles;
     if (this.clockCycles < endCycles && !this.paused) {
       this.cpu.step();
-      requestAnimationFrame(this.update.bind(this));
     }
+    requestAnimationFrame(this.update.bind(this));
   }
 
   public tick(cpuCycle: number) {

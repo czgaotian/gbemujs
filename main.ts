@@ -17,3 +17,14 @@ fileInput.addEventListener('change', (e: Event) => {
   };
   reader.readAsArrayBuffer(file);
 });
+
+const pauseButton = document.getElementById('pause') as HTMLButtonElement;
+pauseButton.addEventListener('click', () => {
+  if (gb.paused) {
+    gb.resume();
+    pauseButton.textContent = 'Pause';
+  } else {
+    gb.pause();
+    pauseButton.textContent = 'Resume';
+  }
+});
