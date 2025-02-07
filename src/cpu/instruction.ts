@@ -17,6 +17,7 @@ export const instructionMap: Record<number, Instruction> = {
   0x02: instruction(IN.LD, AM.MR_R, RT.BC, RT.A),
   0x03: instruction(IN.INC, AM.R, RT.BC),
   0x04: instruction(IN.INC, AM.R, RT.B),
+  0x05: instruction(IN.DEC, AM.R, RT.B),
   0x06: instruction(IN.LD, AM.R_D8, RT.B),
   0x07: instruction(IN.RLCA),
   0x08: instruction(IN.LD, AM.A16_R, RT.NONE, RT.SP),

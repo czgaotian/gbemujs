@@ -25,7 +25,8 @@ export function busRead(this: GameBoy, address: number): number {
     // 卡带ROM和RAM区域
     return this.cartridge.cartridgeRead(address);
   }
-  if (address >= 0xC000 && address <= 0xCFFF) {
+  if (address <= 0xDFFF) {
+    // work ram
     return this.wram[address - 0xC000];
   }
   if (address >= 0xFF01 && address <= 0xFF02) {
@@ -40,9 +41,18 @@ export function busRead(this: GameBoy, address: number): number {
     // IF
     return this.intFlags | 0xE0;
   }
+  if (address >= 0xFF40 && address <= 0xFF4B) {
+    // ppu
+    return 0xff;
+  }
   if (address >= 0xFF80 && address <= 0xFFFE) {
     return this.hram[address - 0xFF80];
   }
+  if (address === 0xFFFF) {
+    // IE
+    return this.intEnableFlags | 0xE0;
+  }
+  console.log(`busRead: unsupport address ${address.toString(16)}`);
   return 0xff;
 }
 
@@ -59,7 +69,8 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
     this.cartridge.cartridgeWrite(address, value);
     return;
   }
-  if (address >= 0xC000 && address <= 0xCFFF) {
+  if (address <= 0xDFFF) {
+    // work ram
     this.wram[address - 0xC000] = value;    
     return;
   }
@@ -78,10 +89,20 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
     this.intFlags = value & 0x1F;
     return;
   }
+  if (address >= 0xFF40 && address <= 0xFF4B) {
+    // ppu
+    return;
+  }
   if (address >= 0xFF80 && address <= 0xFFFE) {
     this.hram[address - 0xFF80] = value;
     return;
   }
+  if (address === 0xFFFF) {
+    // IE
+    this.intEnableFlags = value & 0x1F;
+    return;
+  }
+  console.log(`busWrite: unsupport address ${address.toString(16)}`);
 }
 
 export function busRead16(this: GameBoy, address: number): number {

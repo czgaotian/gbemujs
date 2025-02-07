@@ -59,7 +59,7 @@ export class CPU {
 
   public step() {
     if (!this.halted) {
-      if (this.interruptMasterEnabled && (this.emulator.intEnableFlags & this.emulator.intFlags)) {
+      if (this.interruptMasterEnabled && !!(this.emulator.intEnableFlags & this.emulator.intFlags)) {
         this.handleInterrupts();
       } else {
         const pc = this.pc;
@@ -68,7 +68,7 @@ export class CPU {
         this.emulator.tick(1);
         this.fetchData();
 
-        // console.log(`${this.emulator.clockCycles} - ${pc.toString(16).padStart(2, '0')} : ${instructionDisplay(this)} (${
+        // console.log(`${this.emulator.clockCycles.toString(16)} - ${pc.toString(16).padStart(2, '0')} : ${instructionDisplay(this)} (${
         //   this.opcode.toString(16).padStart(2, '0')
         // } ${
         //   this.emulator.busRead(pc + 1).toString(16).padStart(2, '0')

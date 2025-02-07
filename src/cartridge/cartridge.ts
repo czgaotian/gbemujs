@@ -196,6 +196,6 @@ export class Cartridge {
   }
 
   public cartridgeWrite(address: number, value: number) {
-    throw new Error("Not implemented");
+    // throw new Error("Not implemented");
   }
 }

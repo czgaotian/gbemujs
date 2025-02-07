@@ -20,7 +20,7 @@ export class Serial {
 
   public init() {
     this.sb = 0xFF;
-    this.sc = 0x7E;
+    this.sc = 0x7C;
     this.transfer = false;
   }
 
