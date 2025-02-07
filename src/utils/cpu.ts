@@ -39,7 +39,7 @@ export function instructionDisplay(cpu: CPU) {
 
     case AM.R_D16:
     case AM.R_A16:
-      return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},${cpu.fetchedData.toString(16)}`;
+      return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},$${cpu.fetchedData.toString(16)}`;
 
     case AM.R:
       return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)}`;
@@ -58,7 +58,7 @@ export function instructionDisplay(cpu: CPU) {
 
     case AM.R_D8:
     case AM.R_A8:
-      return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},${cpu.fetchedData & 0xFF}`;
+      return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},$${cpu.fetchedData & 0xFF}`;
 
     case AM.R_HLI:
       return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},(${getRegisterTypeName(inst.registerType2)}+)`;
@@ -79,16 +79,16 @@ export function instructionDisplay(cpu: CPU) {
       return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(inst.registerType1)}),SP+${cpu.fetchedData & 0xFF}`;
 
     case AM.D8:
-      return `${getInstructionTypeName(inst.type)} ${cpu.fetchedData & 0xFF}`;
+      return `${getInstructionTypeName(inst.type)} $${cpu.fetchedData & 0xFF}`;
 
     case AM.D16:
-      return `${getInstructionTypeName(inst.type)} ${cpu.fetchedData.toString(16)}`;
+      return `${getInstructionTypeName(inst.type)} $${cpu.fetchedData.toString(16)}`;
 
     case AM.MR_D8:
-      return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(inst.registerType1)}),${cpu.fetchedData & 0xFF}`;
+      return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(inst.registerType1)}),$${cpu.fetchedData & 0xFF}`;
 
     case AM.A16_R:
-      return `${getInstructionTypeName(inst.type)} (${cpu.fetchedData}),${getRegisterTypeName(inst.registerType2)}`;
+      return `${getInstructionTypeName(inst.type)} ($${cpu.fetchedData}),${getRegisterTypeName(inst.registerType2)}`;
 
     default:
       return `INVALID AM: ${getAddressModeName(inst.addressMode)}`;
