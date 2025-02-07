@@ -341,8 +341,8 @@ function JP(this: CPU) {
 
 // Jump Relative, 相对跳转操作
 function JR(this: CPU) {
-  // 直接转char以正确处理负数
-  const relative = (this.fetchedData & 0xFF);
+  // 通过左移 24 位再右移 24 位，将 8 位数强制转换为有符号的 32 位整数, 处理负数
+  const relative = (this.fetchedData & 0xFF) << 24 >> 24;
   const addr = this.pc + relative;
   gotoAddress(this, addr, false);
 }
