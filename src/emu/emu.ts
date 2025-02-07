@@ -85,18 +85,19 @@ export class GameBoy {
   }
 
   public emulatorLoop(currentTime: number) {
-    const deltaTime = (currentTime - this.lastTime) / 1000;
+    const deltaTime = Math.min(currentTime - this.lastTime, 0.125);
     this.lastTime = currentTime;
     this.update(deltaTime);
+    requestAnimationFrame(this.emulatorLoop.bind(this));
   }
 
   public update(deltaTime: number) {
+    // clock speed is 4194304Hz
     const frameCycles = (4194304.0 * deltaTime) * this.clockSpeedScale;
     const endCycles = this.clockCycles + frameCycles;
-    if (this.clockCycles < endCycles && !this.paused) {
+    while (this.clockCycles < endCycles && !this.paused) {
       this.cpu.step();
     }
-    requestAnimationFrame(this.update.bind(this));
   }
 
   public tick(cpuCycle: number) {
