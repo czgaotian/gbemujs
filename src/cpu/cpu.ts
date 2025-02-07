@@ -1,6 +1,6 @@
 import { AddressMode, Instruction, ConditionType, Flag, RegisterType } from '../types';
 import { instructionMap } from './instruction';
-import { bitGet, getInstructionTypeName, instructionDisplay } from '../utils';
+import { bitGet, getInstructionTypeName, instructionDisplay, registerFDisplay } from '../utils';
 import { processorMap } from './processor';
 import { fetchData } from './fetch';
 import { GameBoy } from '../emu/emu';
@@ -62,9 +62,14 @@ export class CPU {
       if (this.interruptMasterEnabled && (this.emulator.intEnableFlags & this.emulator.intFlags)) {
         this.handleInterrupts();
       } else {
+        const pc = this.pc;
+
         this.fetchInstruction();
         this.emulator.tick(1);
         this.fetchData();
+
+        console.log(`${this.emulator.clockCycles} - ${pc.toString(16)} : ${instructionDisplay(this)} (${this.opcode.toString(16)} ${this.emulator.busRead(pc + 1).toString(16)} ${this.emulator.busRead(pc + 2).toString(16)}) A: ${this.a.toString(16)} F: ${registerFDisplay(this)} BC: ${this.b.toString(16)}${this.c.toString(16)} DE: ${this.d.toString(16)}${this.e.toString(16)} HL: ${this.h.toString(16)}${this.l.toString(16)} `);
+
         this.execute();
       }
     } else {
@@ -84,12 +89,12 @@ export class CPU {
   private handleInterrupts = handleInterrupts.bind(this);
 
   private fetchInstruction(): void {
-    this.opcode = this.emulator.busRead(this.pc++);
+    this.opcode = this.emulator.busRead(this.pc);
+    this.pc++;
     this.instruction = instructionMap[this.opcode];
     if (!this.instruction) {
       throw new Error(`Instruction not found for opcode: 0x${this.opcode.toString(16)}`);
     }
-    console.log(`${instructionDisplay.call(this)}`);
   }
 
   private fetchData = fetchData.bind(this);

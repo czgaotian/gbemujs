@@ -102,11 +102,11 @@ export enum ConditionType {
 
 export interface Instruction {
   type: InstructionType;
-  addressMode?: AddressMode;
-  registerType1?: RegisterType;
-  registerType2?: RegisterType;
-  conditionType?: ConditionType;
-  param?: number;
+  addressMode: AddressMode;
+  registerType1: RegisterType;
+  registerType2: RegisterType;
+  conditionType: ConditionType;
+  param: number;
 }
 
 export type Flag = true | false | 1 | 0 | -1;

@@ -27,18 +27,19 @@ export const getAddressModeName = (addressMode?: AM) => {
   return AddressModeMap[addressMode];
 }
 
-export function instructionDisplay(this: CPU) {
-  const inst = this.instruction;
+export function instructionDisplay(cpu: CPU) {
+  const inst = cpu.instruction;
   if (!inst) {
     return 'INVALID INSTRUCTION';
   }
+
   switch (inst.addressMode) {
     case AM.IMPLIED:
       return `${getInstructionTypeName(inst.type)}`;
 
     case AM.R_D16:
     case AM.R_A16:
-      return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},${this.fetchedData.toString(16)}`;
+      return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},${cpu.fetchedData.toString(16)}`;
 
     case AM.R:
       return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)}`;
@@ -57,7 +58,7 @@ export function instructionDisplay(this: CPU) {
 
     case AM.R_D8:
     case AM.R_A8:
-      return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},${this.fetchedData & 0xFF}`;
+      return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},${cpu.fetchedData & 0xFF}`;
 
     case AM.R_HLI:
       return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(inst.registerType1)},(${getRegisterTypeName(inst.registerType2)}+)`;
@@ -72,24 +73,28 @@ export function instructionDisplay(this: CPU) {
       return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(inst.registerType1)}),${getRegisterTypeName(inst.registerType2)}`;
 
     case AM.A8_R:
-      return `${getInstructionTypeName(inst.type)} ${this.fetchedData},${getRegisterTypeName(inst.registerType2)}`;
+      return `${getInstructionTypeName(inst.type)} ${cpu.fetchedData},${getRegisterTypeName(inst.registerType2)}`;
 
     case AM.HL_SPR:
-      return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(inst.registerType1)}),SP+${this.fetchedData & 0xFF}`;
+      return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(inst.registerType1)}),SP+${cpu.fetchedData & 0xFF}`;
 
     case AM.D8:
-      return `${getInstructionTypeName(inst.type)} ${this.fetchedData & 0xFF}`;
+      return `${getInstructionTypeName(inst.type)} ${cpu.fetchedData & 0xFF}`;
 
     case AM.D16:
-      return `${getInstructionTypeName(inst.type)} ${this.fetchedData}`;
+      return `${getInstructionTypeName(inst.type)} ${cpu.fetchedData.toString(16)}`;
 
     case AM.MR_D8:
-      return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(inst.registerType1)}),${this.fetchedData & 0xFF}`;
+      return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(inst.registerType1)}),${cpu.fetchedData & 0xFF}`;
 
     case AM.A16_R:
-      return `${getInstructionTypeName(inst.type)} (${this.fetchedData}),${getRegisterTypeName(inst.registerType2)}`;
+      return `${getInstructionTypeName(inst.type)} (${cpu.fetchedData}),${getRegisterTypeName(inst.registerType2)}`;
 
     default:
       return `INVALID AM: ${getAddressModeName(inst.addressMode)}`;
   }
+}
+
+export function registerFDisplay(cpu: CPU) {
+  return `${cpu.f & (1 << 7) ? 'Z' : '-'}${cpu.f & (1 << 6) ? 'N' : '-'}${cpu.f & (1 << 5) ? 'H' : '-'}${cpu.f & (1 << 4) ? 'C' : '-'}`;
 }

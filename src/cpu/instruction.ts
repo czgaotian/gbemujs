@@ -1,9 +1,6 @@
-import { AddressModeMap, InstructionTypeMap } from "../constants";
-import { RegisterTypeMap } from "../constants";
 import { Instruction, AddressMode as AM, ConditionType as CT, InstructionType as IN, RegisterType as RT } from "../types";
-import { CPU } from "./cpu";
 
-const instruction = (type: IN, addressMode?: AM, registerType1?: RT, registerType2?: RT, conditionType?: CT, param?: number): Instruction => {
+const instruction = (type: IN, addressMode: AM = AM.IMPLIED, registerType1: RT = RT.NONE, registerType2: RT = RT.NONE, conditionType: CT = CT.NONE, param: number = 0): Instruction => {
   return {
     type,
     addressMode,

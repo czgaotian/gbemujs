@@ -6,7 +6,6 @@ function NOP() {
 
 function NONE() {
   console.log('INVALID INSTRUCTION!\n');
-  process.exit(-7);
 }
 
 const registerLookup = [
@@ -63,7 +62,7 @@ function CB(this: CPU) {
   }
 
   // 其他情况, 根据 bit 值执行具体移位操作。
-  let flagC = this.flagC;
+  const flagC = this.flagC;
 
   switch (bit)
   {
@@ -87,7 +86,7 @@ function CB(this: CPU) {
   case 1:
   {
     // RRC /带进位循环右移
-    let old = registerValue;
+    const old = registerValue;
     registerValue >>= 1;
     registerValue |= (old << 7);
 
@@ -99,7 +98,7 @@ function CB(this: CPU) {
   case 2:
   {
     // RL 通过进位标志循环左移
-    let old = registerValue;
+    const old = registerValue;
     registerValue <<= 1;
     registerValue |= flagC ? 1 : 0;
 
@@ -111,7 +110,7 @@ function CB(this: CPU) {
   case 3:
   {
     // RR  通过进位标志循环右移
-    let old = registerValue;
+    const old = registerValue;
     registerValue >>= 1;
 
     registerValue |= (flagC ? 1 : 0) << 7;
@@ -124,7 +123,7 @@ function CB(this: CPU) {
   case 4:
   {
     // SLA 算数左移
-    let old = registerValue;
+    const old = registerValue;
     registerValue <<= 1;
 
     this.setRegister8Bit(reg, registerValue);
@@ -135,7 +134,7 @@ function CB(this: CPU) {
   case 5:
   {
     // SRA 算术右移
-    let u = (registerValue >> 1) & 0xFF;
+    const u = (registerValue >> 1) & 0xFF;
     this.setRegister8Bit(reg, u);
     this.setFlags(!u, 0, 0, !!(registerValue & 1));
   }
@@ -153,7 +152,7 @@ function CB(this: CPU) {
   case 7:
   {
     // SRL 逻辑右移
-    let u = registerValue >> 1;
+    const u = registerValue >>> 1;
     this.setRegister8Bit(reg, u);
     this.setFlags(!u, 0, 0, !!(registerValue & 1));
   }
@@ -239,8 +238,8 @@ const is16Bit = (rt: RT) => {
 }
 
 function LD(this: CPU) {
-  if (!this.instruction?.addressMode) {
-    throw new Error('Address mode is required for LD instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
 
   if (this.destinationIsMemory) // 写入内存 (dest_is_mem 为 true)
@@ -308,7 +307,7 @@ function LDH(this: CPU) {
 
 function checkCondition(cpu: CPU): boolean {
   if (!cpu.instruction?.conditionType) {
-    return false;
+    return true;
   }
 
   switch (cpu.instruction.conditionType) {
@@ -353,8 +352,8 @@ function CALL(this: CPU) {
 }
 
 function RST(this: CPU) {
-  if (!this.instruction?.param) {
-    throw new Error('Param is required for RST instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
   gotoAddress(this, this.instruction?.param, true);
 }
@@ -383,8 +382,8 @@ function RETI(this: CPU) {
 }
 
 function POP(this: CPU) {
-  if (!this.instruction?.registerType1) {
-    throw new Error('Register type is required for POP instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
 
   const low = this.stackPop();
@@ -403,8 +402,8 @@ function POP(this: CPU) {
 }
 
 function PUSH(this: CPU) {
-  if (!this.instruction?.registerType1) {
-    throw new Error('Register type is required for PUSH instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
 
   const hi = (this.readRegister(this.instruction?.registerType1) >> 8) & 0xFF;
@@ -420,8 +419,8 @@ function PUSH(this: CPU) {
 }
 
 function INC(this: CPU) {
-  if (!this.instruction?.registerType1) {
-    throw new Error('Register type is required for INC instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
 
   let val = this.readRegister(this.instruction.registerType1) + 1;
@@ -451,8 +450,8 @@ function INC(this: CPU) {
 }
 
 function DEC(this: CPU) {
-  if (!this.instruction?.registerType1) {
-    throw new Error('Register type is required for DEC instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
 
   let val = this.readRegister(this.instruction.registerType1) - 1;
@@ -464,24 +463,23 @@ function DEC(this: CPU) {
   if (this.instruction.registerType1 === RT.HL && this.instruction.addressMode === AM.MR) {
     val = this.emulator.busRead(this.readRegister(RT.HL)) - 1;
     this.emulator.busWrite(this.readRegister(RT.HL), val);
-  }
-  else {
+  } else {
     this.setRegister(this.instruction.registerType1, val);
     val = this.readRegister(this.instruction.registerType1);
   }
 
   // 检查操作码是否匹配模式 xxxx1011(0x0B)。如果是，则直接返回不更新标志位
-  if ((this.opcode & 0x0B) == 0x0B) {
+  if ((this.opcode & 0x0B) === 0x0B) {
     return;
   }
 
   // 更新标志位: Z:结果是否为0 N:设为1 H:低4位是否借位 C:保持不变
-  this.setFlags(val == 0, true, (val & 0x0F) == 0x0F, -1);
+  this.setFlags(val === 0, true, (val & 0x0F) === 0x0F, -1);
 }
 
 function SUB(this: CPU) {
-  if (!this.instruction?.registerType1) {
-    throw new Error('Register type is required for SUB instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
 
   const val = this.readRegister(this.instruction.registerType1) - this.fetchedData;
@@ -495,8 +493,8 @@ function SUB(this: CPU) {
 }
 
 function SBC(this: CPU) {
-  if (!this.instruction?.registerType1) {
-    throw new Error('Register type is required for SBC instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
 
   const cflagValue = this.flagC ? 1 : 0;
@@ -510,9 +508,7 @@ function SBC(this: CPU) {
 }
 
 function ADC(this: CPU) {
-  if (!this.instruction?.registerType1) {
-    throw new Error('Register type is required for ADC instruction');
-  }
+
 
   const u = this.fetchedData;
   const a = this.a;
@@ -520,14 +516,12 @@ function ADC(this: CPU) {
 
   this.a = (a + u + c) & 0xFF;
 
-  this.setFlags(this.a == 0, 0,
-    (a & 0xF) + (u & 0xF) + c > 0xF,
-    a + u + c > 0xFF);
+  this.setFlags(this.a === 0, 0,(a & 0xF) + (u & 0xF) + c > 0xF, a + u + c > 0xFF);
 }
 
 function ADD(this: CPU) {
-  if (!this.instruction?.registerType1) {
-    throw new Error('Register type is required for ADD instruction');
+  if (!this.instruction) {
+    throw new Error('Null instruction');
   }
 
   let val = this.readRegister(this.instruction.registerType1) + this.fetchedData;
