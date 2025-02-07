@@ -22,13 +22,13 @@ export function readRegister(this: CPU, registerType: RegisterType): number {
     case RegisterType.L:
       return this.l;
     case RegisterType.AF:
-      return (this.f << 8) | this.a;
+      return (this.a << 8) | this.f;
     case RegisterType.BC:
-      return (this.c << 8) | this.b;
+      return (this.b << 8) | this.c;
     case RegisterType.DE:
-      return (this.e << 8) | this.d;
+      return (this.d << 8) | this.e;
     case RegisterType.HL:
-      return (this.l << 8) | this.h;
+      return (this.h << 8) | this.l;
     case RegisterType.SP:
       return this.sp;
     case RegisterType.PC:
@@ -44,7 +44,7 @@ export function setRegister(this: CPU, registerType: RegisterType, val: number) 
       this.a = val & 0xFF;
       break;
     case RegisterType.F:
-      this.f = val & 0xFF;
+      this.f = val & 0xF0; // The lower 4 bits of F should always be 0.
       break;
     case RegisterType.B:
       this.b = val & 0xFF;
@@ -66,20 +66,21 @@ export function setRegister(this: CPU, registerType: RegisterType, val: number) 
       break;
 
     case RegisterType.AF:
-      this.a = val & 0xFF;
-      this.f = val >> 8 & 0xFF;
+      this.a = val >> 8 & 0xFF;
+      // The lower 4 bits of F should always be 0.
+      this.f = val & 0xF0;
       break;
     case RegisterType.BC:
-      this.b = val & 0xFF;
-      this.c = val >> 8 & 0xFF;
+      this.b = val >> 8 & 0xFF;
+      this.c = val & 0xFF;
       break;
     case RegisterType.DE:
-      this.d = val & 0xFF;
-      this.e = val >> 8 & 0xFF;
+      this.d = val >> 8 & 0xFF;
+      this.e = val & 0xFF;
       break;
     case RegisterType.HL:
-      this.h = val & 0xFF;
-      this.l = val >> 8 & 0xFF;
+      this.h = val >> 8 & 0xFF;
+      this.l = val & 0xFF;
       break;
 
     case RegisterType.PC:

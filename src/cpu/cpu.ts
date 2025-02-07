@@ -68,7 +68,29 @@ export class CPU {
         this.emulator.tick(1);
         this.fetchData();
 
-        console.log(`${this.emulator.clockCycles} - ${pc.toString(16)} : ${instructionDisplay(this)} (${this.opcode.toString(16)} ${this.emulator.busRead(pc + 1).toString(16)} ${this.emulator.busRead(pc + 2).toString(16)}) A: ${this.a.toString(16)} F: ${registerFDisplay(this)} BC: ${this.b.toString(16)}${this.c.toString(16)} DE: ${this.d.toString(16)}${this.e.toString(16)} HL: ${this.h.toString(16)}${this.l.toString(16)} `);
+        // console.log(`${this.emulator.clockCycles} - ${pc.toString(16).padStart(2, '0')} : ${instructionDisplay(this)} (${
+        //   this.opcode.toString(16).padStart(2, '0')
+        // } ${
+        //   this.emulator.busRead(pc + 1).toString(16).padStart(2, '0')
+        // } ${
+        //   this.emulator.busRead(pc + 2).toString(16).padStart(2, '0')
+        // }) A: ${
+        //   this.a.toString(16).padStart(2, '0')
+        // } F: ${
+        //   registerFDisplay(this)
+        // } BC: ${
+        //   this.b.toString(16).padStart(2, '0')
+        // }${
+        //   this.c.toString(16).padStart(2, '0')
+        // } DE: ${
+        //   this.d.toString(16).padStart(2, '0')
+        // }${
+        //   this.e.toString(16).padStart(2, '0')
+        // } HL: ${
+        //   this.h.toString(16).padStart(2, '0')
+        // }${
+        //   this.l.toString(16).padStart(2, '0')
+        // }`);
 
         this.execute();
       }
