@@ -159,18 +159,17 @@ function RLCA(this: CPU) {
 // Rotate Right Circular Accumulator,
 function RRCA(this: CPU) {
   const b = this.registers.a & 1;
-  this.registers.a >>= 1;
-  this.registers.a |= (b << 7);
+  this.registers.a = (this.registers.a >>> 1) | (b << 7);
 
   this.setFlags(0, 0, 0, !!b);
 }
 
 function RLA(this: CPU) {
   const u = this.registers.a;
-  const cf = this.registers.flagC;
+  const cFlag = this.registers.flagC;
   const c = (u >>> 7) & 1;
 
-  this.registers.a = (u << 1) | (cf ? 1 : 0);
+  this.registers.a = (u << 1) | cFlag;
   this.setFlags(0, 0, 0, !!c);
 }
 
@@ -178,8 +177,7 @@ function RRA(this: CPU) {
   const carry = this.registers.flagC;
   const new_c = this.registers.a & 1;
 
-  this.registers.a >>= 1;
-  this.registers.a |= (carry ? 1 : 0) << 7;
+  this.registers.a = (this.registers.a >>> 1) | (carry << 7);
 
   this.setFlags(0, 0, 0, !!new_c);
 }
@@ -326,8 +324,7 @@ function JP(this: CPU) {
 
 // Jump Relative, 相对跳转操作
 function JR(this: CPU) {
-  // 通过左移 24 位再右移 24 位，将 8 位数强制转换为有符号的 32 位整数, 处理负数
-  const relative = (this.fetchedData & 0xFF) << 24 >>> 24;
+  const relative = this.fetchedData << 16 >> 16;
   const addr = this.registers.pc + relative;
   gotoAddress(this, addr, false);
 }

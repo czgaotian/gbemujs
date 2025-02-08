@@ -14,6 +14,10 @@ import { GameBoy } from "./emu";
 // 0xFF00 - 0xFF7F : I/O Registers
 // 0xFF80 - 0xFFFE : Zero Page
 
+/**
+ * @param address u16
+ * @returns u8
+ */
 export function busRead(this: GameBoy, address: number): number {
     if (!address) {
     this.paused = true;
@@ -72,6 +76,11 @@ export function busRead(this: GameBoy, address: number): number {
   return 0xff;
 }
 
+/**
+ * @param address u16
+ * @param value u8
+ * @returns void
+ */
 export function busWrite(this: GameBoy, address: number, value: number): void {
   value = value & 0xFF;
 
@@ -139,12 +148,21 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
   // console.log(`busWrite: unsupport address ${address}(${address.toString(16)})`);
 }
 
+/**
+ * @param address u16
+ * @returns u16
+ */
 export function busRead16(this: GameBoy, address: number): number {
   const low = this.busRead(address);
   const high = this.busRead(address + 1);
   return (high << 8) | low;
 }
 
+/**
+ * @param address u16
+ * @param value u16
+ * @returns void
+ */
 export function busWrite16(this: GameBoy, address: number, value: number): void {
   this.busWrite(address + 1, (value >>> 8) & 0xFF);
   this.busWrite(address, value & 0xFF);
