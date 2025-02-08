@@ -74,7 +74,7 @@ export class Timer {
   public read(address: number) {
     switch (address) {
       case 0xFF04:
-        return this.div >> 8;
+        return this.div >>> 8;
       case 0xFF05:
         return this.tima;
       case 0xFF06:
@@ -87,7 +87,7 @@ export class Timer {
   }
 
   readDIV() {
-    return (this.div >> 8) & 0xff;
+    return (this.div >>> 8) & 0xff;
   }
 
   get clockSelect() {

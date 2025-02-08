@@ -20,6 +20,7 @@ export class GameBoy {
   public clockCycles: number = 0;
   public clockSpeedScale: number = 1;
   public paused: boolean = false;
+  public isDebug: boolean = false;
 
   public vram: Uint8Array;
   public wram: Uint8Array;
@@ -97,6 +98,13 @@ export class GameBoy {
     const endCycles = this.clockCycles + frameCycles;
     while (this.clockCycles < endCycles && !this.paused) {
       this.cpu.step();
+
+      if (this.serial.outputBuffer.length > 0) {
+        let c = this.serial.outputBuffer.shift();
+        if (c) {
+          console.log(String.fromCharCode(c));
+        }
+      }
     }
   }
 
@@ -105,7 +113,7 @@ export class GameBoy {
       for (let j = 0; j < 4; j++) {
         this.clockCycles++;
         this.timer.tick();
-        if ((this.clockCycles % 512) == 0) {
+        if ((this.clockCycles % 512) ===  0) {
           // Serial is ticked at 8192Hz.
           this.serial.tick();
         }
@@ -113,8 +121,26 @@ export class GameBoy {
     }
   }
 
+  /**
+   * @param address
+   * @return u8 number
+   */
   public busRead = busRead.bind(this);
+  /**
+   * @param address
+   * @param value u8 number
+   * @return void
+   */
   public busWrite = busWrite.bind(this);
+  /**
+   * @param address
+   * @return u16 number
+   */
   public busRead16 = busRead16.bind(this);
+  /**
+   * @param address
+   * @param value u16 number
+   * @return void
+   */
   public busWrite16 = busWrite16.bind(this);
 }

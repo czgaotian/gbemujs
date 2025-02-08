@@ -1,56 +1,34 @@
 import { AddressMode, Instruction, ConditionType, Flag, RegisterType } from '../types';
 import { instructionMap } from './instruction';
-import { bitGet, getInstructionTypeName, instructionDisplay, registerFDisplay } from '../utils';
+import { bitGet, consoleCpu, getInstructionTypeName, instructionDisplay, registerFDisplay } from '../utils';
 import { processorMap } from './processor';
 import { fetchData } from './fetch';
 import { GameBoy } from '../emu/emu';
 import { stackPush, stackPush16, stackPop, stackPop16 } from './stack';
-import { setFlags, setRegister, readRegister, setRegister8Bit, readRegister8Bit } from './registers'
+import { Registers } from './registers'
 import { handleInterrupts } from './interrupts';
 
 export class CPU {
   public emulator: GameBoy;
+  public registers: Registers;
 
-  public opcode: number = 0;
-  public fetchedData: number = 0;
+  private _opcode: number = 0;
+  private _fetchedData: number = 0;
   public instruction?: Instruction;
-  public memoryDestination: number = 0;
+  private _memoryDestination: number = 0;
   public destinationIsMemory: boolean = false;
   public halted: boolean = false;
 
   public interruptMasterEnabled: boolean = false;
   public interruptMasterEnablingCountdown: number = 0;
 
-  // 8位寄存器
-  public a: number = 0;
-  public b: number = 0;
-  public c: number = 0;
-  public d: number = 0;
-  public e: number = 0;
-  public h: number = 0;
-  public l: number = 0;
-  public f: number = 0;
-
-  // 16位程序计数器和栈指针
-  public pc: number = 0;
-  public sp: number = 0;
-
   constructor(emulator: GameBoy) {
     this.emulator = emulator;
+    this.registers = new Registers();
   }
 
   public init(): void {
-    this.a = 0x01;
-    this.b = 0x00;
-    this.c = 0x13;
-    this.d = 0x00;
-    this.e = 0xd8;
-    this.h = 0x01;
-    this.l = 0x4d;
-    this.f = 0xb0;
-
-    this.sp = 0xfffe;
-    this.pc = 0x100; // 0x100 是游戏程序的入口点
+    this.registers.init();
 
     this.halted = false;
     this.interruptMasterEnabled = false;
@@ -62,35 +40,13 @@ export class CPU {
       if (this.interruptMasterEnabled && !!(this.emulator.intEnableFlags & this.emulator.intFlags)) {
         this.handleInterrupts();
       } else {
-        const pc = this.pc;
+        const pc = this.registers.pc;
 
         this.fetchInstruction();
         this.emulator.tick(1);
         this.fetchData();
 
-        // console.log(`${this.emulator.clockCycles.toString(16)} - ${pc.toString(16).padStart(2, '0')} : ${instructionDisplay(this)} (${
-        //   this.opcode.toString(16).padStart(2, '0')
-        // } ${
-        //   this.emulator.busRead(pc + 1).toString(16).padStart(2, '0')
-        // } ${
-        //   this.emulator.busRead(pc + 2).toString(16).padStart(2, '0')
-        // }) A: ${
-        //   this.a.toString(16).padStart(2, '0')
-        // } F: ${
-        //   registerFDisplay(this)
-        // } BC: ${
-        //   this.b.toString(16).padStart(2, '0')
-        // }${
-        //   this.c.toString(16).padStart(2, '0')
-        // } DE: ${
-        //   this.d.toString(16).padStart(2, '0')
-        // }${
-        //   this.e.toString(16).padStart(2, '0')
-        // } HL: ${
-        //   this.h.toString(16).padStart(2, '0')
-        // }${
-        //   this.l.toString(16).padStart(2, '0')
-        // }`);
+        this.emulator.isDebug && consoleCpu(pc, this);
 
         this.execute();
       }
@@ -111,8 +67,8 @@ export class CPU {
   private handleInterrupts = handleInterrupts.bind(this);
 
   private fetchInstruction(): void {
-    this.opcode = this.emulator.busRead(this.pc);
-    this.pc++;
+    this.opcode = this.emulator.busRead(this.registers.pc);
+    this.registers.pc++;
     this.instruction = instructionMap[this.opcode];
     if (!this.instruction) {
       throw new Error(`Instruction not found for opcode: 0x${this.opcode.toString(16)}`);
@@ -132,26 +88,49 @@ export class CPU {
     processor.call(this);
   }
 
-  public readRegister = readRegister.bind(this);
-  public setRegister = setRegister.bind(this);
-  public readRegister8Bit = readRegister8Bit.bind(this);
-  public setRegister8Bit = setRegister8Bit.bind(this);
-  public setFlags = setFlags.bind(this);
-
-  public get flagZ() {
-    return bitGet(this.f, 7);
+  /**
+   * @param registerType
+   * @return u16 number
+   */
+  public readRegister(registerType: RegisterType) {
+    return this.registers.read(registerType);
   }
 
-  public get flagC() {
-    return bitGet(this.f, 4);
+  /**
+   * @param registerType
+   * @param value u16 number
+   * @return void
+   */
+  public setRegister(registerType: RegisterType, value: number) {
+    this.registers.set(registerType, value);
   }
 
-  public get flagH() {
-    return bitGet(this.f, 2);
+  /**
+   * @param registerType
+   * @return u8 number
+   */
+  public readRegister8Bit(registerType: RegisterType) {
+    if (registerType === RegisterType.HL) {
+      return this.emulator.busRead(this.readRegister(RegisterType.HL));
+    }
+    return this.registers.read8Bit(registerType);
   }
 
-  public get flagN() {
-    return bitGet(this.f, 6);
+  /**
+   * @param registerType
+   * @param value u8 number
+   * @return void
+   */
+  public setRegister8Bit(registerType: RegisterType, value: number) {
+    if (registerType === RegisterType.HL) {
+      this.emulator.busWrite(this.readRegister(RegisterType.HL), value);
+    } else {
+      this.registers.set8Bit(registerType, value);
+    }
+  }
+
+  public setFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
+    this.registers.setFlags(z, n, h, c);
   }
 
   public stackPush = stackPush.bind(this);
@@ -166,5 +145,29 @@ export class CPU {
   public disableInterruptMaster() {
     this.interruptMasterEnabled = false;
     this.interruptMasterEnablingCountdown = 0;
+  }
+
+  get opcode() {
+    return this._opcode & 0xFF;
+  }
+
+  set opcode(value: number) {
+    this._opcode = value & 0xFF;
+  }
+
+  get fetchedData() {
+    return this._fetchedData & 0xFFFF;
+  }
+
+  set fetchedData(value: number) {
+    this._fetchedData = value & 0xFFFF;
+  }
+
+  get memoryDestination() {
+    return this._memoryDestination & 0xFFFF;
+  }
+
+  set memoryDestination(value: number) {
+    this._memoryDestination = value & 0xFFFF;
   }
 }

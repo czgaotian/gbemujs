@@ -31,7 +31,7 @@ export class Serial {
   }
 
   processTransfer() {
-    this.sb <<= 1;
+    this.sb = (this.sb << 1) & 0xFF;
     // Set lowest bit to 1.
     this.sb++;
     this.transferBit--;
@@ -59,19 +59,19 @@ export class Serial {
 
   public read(addr: number) {
     if (addr >= 0xFF01 && addr <= 0xFF02) {
-      if (addr == 0xFF01) return this.sb;
-      if (addr == 0xFF02) return this.sc;
+      if (addr ===  0xFF01) return this.sb;
+      if (addr ===  0xFF02) return this.sc;
     }
     return 0xFF;
   }
 
   public write(addr: number, data: number) {
     if (addr >= 0xFF01 && addr <= 0xFF02) {
-      if (addr == 0xFF01) {
+      if (addr ===  0xFF01) {
         this.sb = data;
         return;
       }
-      if (addr == 0xFF02) {
+      if (addr ===  0xFF02) {
         this.sc = 0x7C | (data & 0x83);
         return;
       }

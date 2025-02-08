@@ -95,6 +95,32 @@ export function instructionDisplay(cpu: CPU) {
   }
 }
 
-export function registerFDisplay(cpu: CPU) {
-  return `${cpu.f & (1 << 7) ? 'Z' : '-'}${cpu.f & (1 << 6) ? 'N' : '-'}${cpu.f & (1 << 5) ? 'H' : '-'}${cpu.f & (1 << 4) ? 'C' : '-'}`;
+export function registerFDisplay(f: number) {
+  return `${f & (1 << 7) ? 'Z' : '-'}${f & (1 << 6) ? 'N' : '-'}${f & (1 << 5) ? 'H' : '-'}${f & (1 << 4) ? 'C' : '-'}`;
+}
+
+export const consoleCpu = (pc: number,cpu: CPU) => {
+  console.log(`${cpu.emulator.clockCycles.toString(16)} - ${pc.toString(16).padStart(2, '0')} : ${instructionDisplay(cpu)} (${
+          cpu.opcode.toString(16).padStart(2, '0')
+        } ${
+          cpu.emulator.busRead(pc + 1).toString(16).padStart(2, '0')
+        } ${
+          cpu.emulator.busRead(pc + 2).toString(16).padStart(2, '0')
+        }) A: ${
+          cpu.registers.a.toString(16).padStart(2, '0')
+        } F: ${
+          registerFDisplay(cpu.registers.f)
+        } BC: ${
+          cpu.registers.b.toString(16).padStart(2, '0')
+        }${
+          cpu.registers.c.toString(16).padStart(2, '0')
+        } DE: ${
+          cpu.registers.d.toString(16).padStart(2, '0')
+        }${
+          cpu.registers.e.toString(16).padStart(2, '0')
+        } HL: ${
+          cpu.registers.h.toString(16).padStart(2, '0')
+        }${
+          cpu.registers.l.toString(16).padStart(2, '0')
+        }`);
 }
