@@ -274,13 +274,13 @@ Load High,
 从内存的高地址区(0xFF00 到 0xFFFF)域加载数据到寄存器, 或者将寄存器的数据写入内存的高地址区域
 */
 function LDH(this: CPU) {
-  // 如果当前指令的目标寄存器(reg_1)是寄存器 A, 则执行加载操作
+  // 如果当前指令的目标寄存器(reg_1)是寄存器 A, 则执行加载操作, 0xF0 LDH A, (a8)
   if (this.instruction?.registerType1 === RT.A) {
-    this.setRegister(this.instruction?.registerType1, this.emulator.busRead(0xFF00 | this.fetchedData));
+    this.setRegister(this.instruction?.registerType1, this.emulator.busRead(this.fetchedData) | 0xFF00);
   }
-  // 否则则执行存储操作
+  // 否则则执行存储操作, 0xE0 LDH (a8), A
   else {
-    this.emulator.busWrite(this.memoryDestination, this.fetchedData);
+    this.emulator.busWrite(this.memoryDestination, this.registers.a);
   }
 
   this.emulator.tick(1);
