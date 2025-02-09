@@ -1,11 +1,21 @@
 <html>
 
 <body>
-  <canvas id="screen"></canvas>
-  <input type="file" id="rom-file" />
-  <button id="pause">Pause</button>
-  <button id="step">Next Step</button>
-  <button id="console">console</button>
+  <div>
+    <canvas id="screen"></canvas>
+  </div>
+  <div>
+    <input type="file" id="rom-file" />
+    <button id="pause">Pause</button>
+    <button id="step">Next Step</button>
+    <button id="console">console</button>
+  </div>
+  <div>
+    <div>
+      <h5>Serial Output</h5>
+      <pre id="serial-output"></pre>
+    </div>
+
 </body>
 
 <script type="module" src="./main.ts"></script>

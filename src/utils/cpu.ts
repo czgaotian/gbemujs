@@ -103,7 +103,7 @@ export function instructionDisplay(cpu: CPU) {
       )}),${getRegisterTypeName(inst.registerType2)}`;
 
     case AM.A8_R:
-      return `${getInstructionTypeName(inst.type)} ${(cpu.fetchedData & 0xff)
+      return `${getInstructionTypeName(inst.type)} $${(cpu.memoryDestination & 0xff)
         .toString(16)
         .padStart(2, '0')},${getRegisterTypeName(inst.registerType2)}`;
 

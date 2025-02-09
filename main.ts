@@ -1,9 +1,9 @@
-import GameBoy from "./src";
-import { instructionDisplay, registerFDisplay } from "./src/utils/cpu";
+import GameBoy from './src';
+import { instructionDisplay, registerFDisplay } from './src/utils/cpu';
 
 const gb = new GameBoy();
 
-console.log("Emulator init:", gb);
+console.log('Emulator init:', gb);
 
 const fileInput = document.getElementById('rom-file') as HTMLInputElement;
 
@@ -32,9 +32,9 @@ pauseButton.addEventListener('click', () => {
 
 const stepButton = document.getElementById('step') as HTMLButtonElement;
 stepButton.addEventListener('click', () => {
-  gb.isDebug = true;
+  // gb.isDebug = true;
   gb.cpu.step();
-  gb.isDebug = false;
+  // gb.isDebug = false;
 });
 
 const consoleButton = document.getElementById('console') as HTMLButtonElement;

@@ -27,7 +27,7 @@ export class GameBoy {
   public wram: Uint8Array;
   public hram: Uint8Array;
 
-  public intFlags: IT;
+  public intFlags: number;
   public intEnableFlags: number;
 
   constructor() {
@@ -100,10 +100,10 @@ export class GameBoy {
     while (this.clockCycles < endCycles && !this.paused) {
       this.cpu.step();
 
-      if (this.serial.outputMessage.length > 0) {
-        // this.isDebug = true;
-        console.log(this.serial.outputMessage);
-        this.serial.outputMessage = '';
+      if (this.serial.outputBuffer.length > 0) {
+        const serialOutput = document.getElementById('serial-output') as HTMLPreElement;
+        const text = this.serial.outputBuffer.reduce((acc, curr) => acc + String.fromCharCode(curr), ''); 
+        serialOutput.textContent = text;
       }
     }
   }

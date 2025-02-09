@@ -276,7 +276,7 @@ Load High,
 function LDH(this: CPU) {
   // 如果当前指令的目标寄存器(reg_1)是寄存器 A, 则执行加载操作, 0xF0 LDH A, (a8)
   if (this.instruction?.registerType1 === RT.A) {
-    this.setRegister(this.instruction?.registerType1, this.emulator.busRead(this.fetchedData) | 0xFF00);
+    this.setRegister(this.instruction?.registerType1, this.emulator.busRead(this.fetchedData | 0xFF00));
   }
   // 否则则执行存储操作, 0xE0 LDH (a8), A
   else {

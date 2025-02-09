@@ -15,7 +15,7 @@ export class Serial {
   outByte: number = 0;
   transferBit: number = 0;
 
-  outputMessage = '';
+  outputBuffer: number[] = [];
 
   constructor(emu: GameBoy) {
     this.emu = emu;
@@ -29,7 +29,6 @@ export class Serial {
 
   beginTransfer() {
     this.transfering = true;
-    console.log(this.sb.toString(16).padStart(4, '0'));
     this.outByte = this.sb;
     this.transferBit = 7;
   }
@@ -46,11 +45,10 @@ export class Serial {
   }
 
   endTransfer() {
-    bitSet(this.sc, 7, true);
+    this.sc = bitSet(this.sc, 7, false);
     this.transfering = false;
     this.emu.intFlags |= IT.SERIAL;
-    console.log(this.outByte);
-    this.outputMessage += String.fromCharCode(this.outByte);
+    this.outputBuffer.push(this.outByte);
   }
 
   tick() {
@@ -76,7 +74,7 @@ export class Serial {
   public write(addr: number, data: number) {
     if (addr >= 0xff01 && addr <= 0xff02) {
       if (addr === 0xff01) {
-        this.emu.isDebug = true;
+        // this.emu.isDebug = true;
         this.sb = data;
         return;
       }
