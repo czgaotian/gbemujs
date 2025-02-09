@@ -1,5 +1,6 @@
 import { CPU } from '../cpu/cpu';
 import { cpuLog } from '../utils';
+import { InstructionType } from '../types/cpu';
 
 const logStack: string[] = [];
 let isShowLog = false;
@@ -17,6 +18,10 @@ export function debug(pc: number, cpu: CPU) {
     // console.log(logStack);
     // cpu.emulator.paused = true;
   }
+
+  // if (cpu.instruction?.type === InstructionType.DAA) {
+  //   cpu.emulator.isDebug = true;
+  // }
 
   if (cpu.emulator.isDebug) {
     if (!isShowLog) { 
