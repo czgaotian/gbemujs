@@ -1,37 +1,41 @@
-import { GameBoy } from "../emu/emu";
-import { bitSet, bitTest } from "../utils";
-
+import { GameBoy } from '../emu/emu';
+import { bitSet, bitTest } from '../utils';
+import { InterruptType as IT } from '../types';
 
 export class Serial {
   public emu: GameBoy;
 
+  // 0xFF01 Serial transfer data.
   sb: number = 0;
+  // 0xFF02 Serial control.
   sc: number = 0;
-  transfer: boolean = false;
+
+  transfering: boolean = false;
 
   outByte: number = 0;
   transferBit: number = 0;
 
-  outputBuffer: number[] = [];
+  outputMessage = '';
 
   constructor(emu: GameBoy) {
     this.emu = emu;
   }
 
   public init() {
-    this.sb = 0xFF;
-    this.sc = 0x7C;
-    this.transfer = false;
+    this.sb = 0xff;
+    this.sc = 0x7c;
+    this.transfering = false;
   }
 
   beginTransfer() {
-    this.transfer = true;
+    this.transfering = true;
+    console.log(this.sb.toString(16).padStart(4, '0'));
     this.outByte = this.sb;
     this.transferBit = 7;
   }
 
   processTransfer() {
-    this.sb = (this.sb << 1) & 0xFF;
+    this.sb = (this.sb << 1) & 0xff;
     // Set lowest bit to 1.
     this.sb++;
     this.transferBit--;
@@ -42,37 +46,42 @@ export class Serial {
   }
 
   endTransfer() {
-    this.outputBuffer.push(this.outByte);
     bitSet(this.sc, 7, true);
-    this.transfer = false;
-    this.emu.intFlags |= 0x08;
+    this.transfering = false;
+    this.emu.intFlags |= IT.SERIAL;
+    console.log(this.outByte);
+    this.outputMessage += String.fromCharCode(this.outByte);
   }
 
   tick() {
-    if (!this.transfer && this.transferEnabled && this.isMaster) {
+    if (!this.transfering && this.transferEnabled && this.isMaster) {
       this.beginTransfer();
-    }
-    else if (this.transfer) {
+    } else if (this.transfering) {
       this.processTransfer();
     }
   }
 
   public read(addr: number) {
-    if (addr >= 0xFF01 && addr <= 0xFF02) {
-      if (addr ===  0xFF01) return this.sb;
-      if (addr ===  0xFF02) return this.sc;
+    if (addr >= 0xff01 && addr <= 0xff02) {
+      if (addr === 0xff01) return this.sb;
+      if (addr === 0xff02) return this.sc;
     }
-    return 0xFF;
+    return 0xff;
   }
 
+  /**
+   * @param addr
+   * @param data u8
+   */
   public write(addr: number, data: number) {
-    if (addr >= 0xFF01 && addr <= 0xFF02) {
-      if (addr ===  0xFF01) {
+    if (addr >= 0xff01 && addr <= 0xff02) {
+      if (addr === 0xff01) {
+        this.emu.isDebug = true;
         this.sb = data;
         return;
       }
-      if (addr ===  0xFF02) {
-        this.sc = 0x7C | (data & 0x83);
+      if (addr === 0xff02) {
+        this.sc = 0x7c | (data & 0x83);
         return;
       }
     }

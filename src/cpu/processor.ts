@@ -27,7 +27,7 @@ function decodeRegister(reg: number) {
   return registerLookup[reg];
 }
 
-function CB(this: CPU) {
+export function CB(this: CPU) {
   const op = this.fetchedData;
   const reg = decodeRegister(op & 0b111);
   const bit = (op >>> 3) & 0b111;   // 被操作的位或移位操作类型
@@ -261,7 +261,7 @@ function LD(this: CPU) {
 
     this.setFlags(0, 0, hflag, cflag);
     this.setRegister(this.instruction.registerType1,
-      this.readRegister(this.instruction.registerType2) + this.fetchedData);
+      this.readRegister(this.instruction.registerType2) + (this.fetchedData << 16 >> 16));
 
     return;
   }
@@ -323,9 +323,9 @@ function JP(this: CPU) {
 }
 
 // Jump Relative, 相对跳转操作
-function JR(this: CPU) {
-  const relative = this.fetchedData << 16 >> 16;
-  const addr = this.registers.pc + relative;
+export function JR(this: CPU) {
+  const relative = (this.fetchedData & 0xFF) << 24 >> 24;
+  const addr = (this.registers.pc + relative) & 0xFFFF;
   gotoAddress(this, addr, false);
 }
 
@@ -413,8 +413,7 @@ function INC(this: CPU) {
 
   // 如果是对内存(HL)操作,则从总线读写数据
   if (this.instruction.registerType1 === RT.HL && this.instruction.addressMode === AM.MR) {
-    val = (this.emulator.busRead(this.readRegister(RT.HL)) + 1)
-    val &= 0xFF;
+    val = (this.emulator.busRead(this.readRegister(RT.HL)) + 1) & 0xFF;
     this.emulator.busWrite(this.readRegister(RT.HL), val);
   } else {
     this.setRegister(this.instruction.registerType1, val);
@@ -436,14 +435,14 @@ function DEC(this: CPU) {
   }
 
   // u16
-  let val = this.readRegister(this.instruction.registerType1) - 1;
+  let val = (this.readRegister(this.instruction.registerType1) - 1) & 0xFFFF;
 
   if (is16Bit(this.instruction.registerType1)) {
     this.emulator.tick(1);
   }
 
   if (this.instruction.registerType1 === RT.HL && this.instruction.addressMode === AM.MR) {
-    val = this.emulator.busRead(this.readRegister(RT.HL)) - 1;
+    val = (this.emulator.busRead(this.readRegister(RT.HL)) - 1) & 0xFFFF;
     this.emulator.busWrite(this.readRegister(RT.HL), val);
   } else {
     this.setRegister(this.instruction.registerType1, val);
@@ -468,7 +467,7 @@ function SUB(this: CPU) {
   const val = (registerValue - this.fetchedData) & 0xFFFF;
 
   const z = val === 0;
-  const h = ((registerValue & 0xF) - (this.fetchedData & 0xF)) < 0;
+  const h = (registerValue & 0xF) - (this.fetchedData & 0xF) < 0;
   const c = (registerValue - this.fetchedData) < 0;
 
   this.setRegister(this.instruction.registerType1, val);
@@ -482,7 +481,7 @@ function SBC(this: CPU) {
 
   const registerValue = this.readRegister(this.instruction.registerType1);
 
-  const val = this.fetchedData + this.registers.flagC;
+  const val = (this.fetchedData + this.registers.flagC) & 0xFF;
   const z = registerValue - val === 0;
   const h = ((registerValue & 0xF) - (this.fetchedData & 0xF) - this.registers.flagC) < 0;
   const c = (registerValue - this.fetchedData - this.registers.flagC) < 0;
@@ -492,8 +491,6 @@ function SBC(this: CPU) {
 }
 
 function ADC(this: CPU) {
-
-
   const u = this.fetchedData;
   const a = this.registers.a;
   const c = this.registers.flagC;
@@ -519,7 +516,7 @@ function ADD(this: CPU) {
   let val = registerValue + fetchedData;
   // 处理栈指针（RT_SP）的特殊情况
   if (this.instruction.registerType1 === RT.SP) {
-    val = registerValue + ((fetchedData << 24) >>> 24);
+    val = registerValue + (fetchedData << 16 >> 16);
   }
 
   let z: Flag = (val & 0xFF) === 0;
@@ -529,8 +526,7 @@ function ADD(this: CPU) {
   if (is_16bit) {
     z = -1;
     h = (registerValue & 0xFFF) + (fetchedData & 0xFFF) >= 0x1000;
-    const n = ((registerValue) + ((fetchedData)));
-    c = n >= 0x10000;
+    c = (registerValue + fetchedData) >= 0x10000;
   }
 
   if (this.instruction.registerType1 === RT.SP) {

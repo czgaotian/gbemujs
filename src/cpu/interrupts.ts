@@ -14,15 +14,15 @@ export function handleInterrupts(this: CPU) {
   this.emulator.intFlags &= ~service_int;
   this.disableInterruptMaster();
   this.emulator.tick(2);
-  this.stackPush16(this.pc);
+  this.stackPush16(this.registers.pc);
   this.emulator.tick(2);
 
   switch (service_int) {
-    case IT.VBLANK: this.pc = 0x40; break;
-    case IT.LCD_STAT: this.pc = 0x48; break;
-    case IT.TIMER: this.pc = 0x50; break;
-    case IT.SERIAL: this.pc = 0x58; break;
-    case IT.JOYPAD: this.pc = 0x60; break;
+    case IT.VBLANK: this.registers.pc = 0x40; break;
+    case IT.LCD_STAT: this.registers.pc = 0x48; break;
+    case IT.TIMER: this.registers.pc = 0x50; break;
+    case IT.SERIAL: this.registers.pc = 0x58; break;
+    case IT.JOYPAD: this.registers.pc = 0x60; break;
   }
   this.emulator.tick(1);
 }

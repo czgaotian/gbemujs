@@ -1,12 +1,25 @@
-import { AddressMode, Instruction, ConditionType, Flag, RegisterType } from '../types';
+import {
+  AddressMode,
+  Instruction,
+  ConditionType,
+  Flag,
+  RegisterType,
+} from '../types';
 import { instructionMap } from './instruction';
-import { bitGet, consoleCpu, getInstructionTypeName, instructionDisplay, registerFDisplay } from '../utils';
+import {
+  bitGet,
+  cpuLog,
+  getInstructionTypeName,
+  instructionDisplay,
+  registerFDisplay,
+} from '../utils';
 import { processorMap } from './processor';
 import { fetchData } from './fetch';
 import { GameBoy } from '../emu/emu';
 import { stackPush, stackPush16, stackPop, stackPop16 } from './stack';
-import { Registers } from './registers'
+import { Registers } from './registers';
 import { handleInterrupts } from './interrupts';
+import { debug } from '../debug/debug';
 
 export class CPU {
   public emulator: GameBoy;
@@ -37,7 +50,10 @@ export class CPU {
 
   public step() {
     if (!this.halted) {
-      if (this.interruptMasterEnabled && !!(this.emulator.intEnableFlags & this.emulator.intFlags)) {
+      if (
+        this.interruptMasterEnabled &&
+        !!(this.emulator.intEnableFlags & this.emulator.intFlags)
+      ) {
         this.handleInterrupts();
       } else {
         const pc = this.registers.pc;
@@ -46,7 +62,7 @@ export class CPU {
         this.emulator.tick(1);
         this.fetchData();
 
-        this.emulator.isDebug && consoleCpu(pc, this);
+        debug(pc, this);
 
         this.execute();
       }
@@ -71,7 +87,9 @@ export class CPU {
     this.registers.pc++;
     this.instruction = instructionMap[this.opcode];
     if (!this.instruction) {
-      throw new Error(`Instruction not found for opcode: 0x${this.opcode.toString(16)}`);
+      throw new Error(
+        `Instruction not found for opcode: 0x${this.opcode.toString(16)}`
+      );
     }
   }
 
@@ -83,7 +101,11 @@ export class CPU {
     }
     const processor = processorMap[this.instruction.type];
     if (!processor) {
-      throw new Error(`Processor not found for instruction: ${getInstructionTypeName(this.instruction.type)}`);
+      throw new Error(
+        `Processor not found for instruction: ${getInstructionTypeName(
+          this.instruction.type
+        )}`
+      );
     }
     processor.call(this);
   }
@@ -148,26 +170,26 @@ export class CPU {
   }
 
   get opcode() {
-    return this._opcode & 0xFF;
+    return this._opcode & 0xff;
   }
 
   set opcode(value: number) {
-    this._opcode = value & 0xFF;
+    this._opcode = value & 0xff;
   }
 
   get fetchedData() {
-    return this._fetchedData & 0xFFFF;
+    return this._fetchedData & 0xffff;
   }
 
   set fetchedData(value: number) {
-    this._fetchedData = value & 0xFFFF;
+    this._fetchedData = value & 0xffff;
   }
 
   get memoryDestination() {
-    return this._memoryDestination & 0xFFFF;
+    return this._memoryDestination & 0xffff;
   }
 
   set memoryDestination(value: number) {
-    this._memoryDestination = value & 0xFFFF;
+    this._memoryDestination = value & 0xffff;
   }
 }

@@ -6,6 +6,7 @@ import { Joypad } from '../joypad/joypad';
 import { Cartridge } from '../cartridge/cartridge';
 import { Timer } from '../timer/timer';
 import { Serial } from '../serial/serial';
+import { InterruptType as IT } from '../types';
 
 export class GameBoy {
   public cpu: CPU;
@@ -26,7 +27,7 @@ export class GameBoy {
   public wram: Uint8Array;
   public hram: Uint8Array;
 
-  public intFlags: number;
+  public intFlags: IT;
   public intEnableFlags: number;
 
   constructor() {
@@ -45,14 +46,14 @@ export class GameBoy {
     this.hram = new Uint8Array(0x80); // high ram
 
     // 0xFF0F - The interruption flags.
-    this.intFlags = 0;
+    this.intFlags = IT.NONE;
     // 0xFFFF - The interruption enabling flags.
     this.intEnableFlags = 0;
   }
 
   public loadROM(data: Uint8Array): void {
     this.cartridge.loadROM(data);
-    console.log("Loaded cartridge:", this.cartridge.getCartridgeInfo());
+    console.log('Loaded cartridge:', this.cartridge.getCartridgeInfo());
     this.init();
   }
 
@@ -68,7 +69,7 @@ export class GameBoy {
     this.wram.fill(0);
     this.hram.fill(0);
 
-    this.intFlags = 0;
+    this.intFlags = IT.NONE;
     this.intEnableFlags = 0;
   }
 
@@ -94,16 +95,15 @@ export class GameBoy {
 
   public update(deltaTime: number) {
     // clock speed is 4194304Hz
-    const frameCycles = (4194304.0 * deltaTime) * this.clockSpeedScale;
+    const frameCycles = 4194304.0 * deltaTime * this.clockSpeedScale;
     const endCycles = this.clockCycles + frameCycles;
     while (this.clockCycles < endCycles && !this.paused) {
       this.cpu.step();
 
-      if (this.serial.outputBuffer.length > 0) {
-        let c = this.serial.outputBuffer.shift();
-        if (c) {
-          console.log(String.fromCharCode(c));
-        }
+      if (this.serial.outputMessage.length > 0) {
+        // this.isDebug = true;
+        console.log(this.serial.outputMessage);
+        this.serial.outputMessage = '';
       }
     }
   }
@@ -113,7 +113,7 @@ export class GameBoy {
       for (let j = 0; j < 4; j++) {
         this.clockCycles++;
         this.timer.tick();
-        if ((this.clockCycles % 512) ===  0) {
+        if (this.clockCycles % 512 === 0) {
           // Serial is ticked at 8192Hz.
           this.serial.tick();
         }

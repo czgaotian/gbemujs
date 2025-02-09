@@ -19,7 +19,7 @@ export enum AddressMode {
   MR_D8,
   MR,
   A16_R,
-  R_A16
+  R_A16,
 }
 
 export enum RegisterType {
@@ -37,7 +37,7 @@ export enum RegisterType {
   DE,
   HL,
   SP,
-  PC
+  PC,
 }
 
 export enum InstructionType {
@@ -89,7 +89,7 @@ export enum InstructionType {
   SRL,
   BIT,
   RES,
-  SET
+  SET,
 }
 
 export enum ConditionType {
@@ -97,7 +97,7 @@ export enum ConditionType {
   NZ,
   Z,
   NC,
-  C
+  C,
 }
 
 export interface Instruction {
@@ -112,9 +112,10 @@ export interface Instruction {
 export type Flag = true | false | 1 | 0 | -1;
 
 export enum InterruptType {
+  NONE = 0,
   VBLANK = 1,
   LCD_STAT = 2,
   TIMER = 4,
   SERIAL = 8,
-  JOYPAD = 16
+  JOYPAD = 16,
 }
