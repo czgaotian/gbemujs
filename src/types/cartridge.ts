@@ -1,4 +1,4 @@
-export enum CartridgeType {
+export enum CARTRIDGE_TYPE {
   ROM_ONLY = 0x00,
   MBC1 = 0x01,
   MBC1_RAM = 0x02,
@@ -29,7 +29,7 @@ export interface CartridgeInfo {
   title: string;
   newLicenseCode: Uint8Array;
   sgbFlag: number;
-  type: CartridgeType;
+  type: CARTRIDGE_TYPE;
   romSize: number;
   ramSize: number;
   destinationCode: number;

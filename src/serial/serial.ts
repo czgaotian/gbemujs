@@ -1,6 +1,6 @@
 import { GameBoy } from '../emu/emu';
 import { bitSet, bitTest } from '../utils';
-import { InterruptType as IT } from '../types';
+import { INTERRUPT_TYPE as IT } from '../types';
 
 export class Serial {
   public emu: GameBoy;

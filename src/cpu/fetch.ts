@@ -1,5 +1,5 @@
 import { CPU } from "./cpu";
-import { AddressMode as AM, RegisterType as RT } from "../types";
+import { ADDRESS_MODE as AM, REGISTER_TYPE as RT } from "../types";
 
 export function fetchData(this: CPU) {
   this.memoryDestination = 0;

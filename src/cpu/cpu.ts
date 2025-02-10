@@ -1,9 +1,9 @@
 import {
-  AddressMode,
+  ADDRESS_MODE,
   Instruction,
-  ConditionType,
+  CONDITION_TYPE,
   Flag,
-  RegisterType,
+  REGISTER_TYPE,
 } from '../types';
 import { instructionMap } from './instruction';
 import {
@@ -114,7 +114,7 @@ export class CPU {
    * @param registerType
    * @return u16 number
    */
-  public readRegister(registerType: RegisterType) {
+  public readRegister(registerType: REGISTER_TYPE) {
     return this.registers.read(registerType);
   }
 
@@ -123,7 +123,7 @@ export class CPU {
    * @param value u16 number
    * @return void
    */
-  public setRegister(registerType: RegisterType, value: number) {
+  public setRegister(registerType: REGISTER_TYPE, value: number) {
     this.registers.set(registerType, value);
   }
 
@@ -131,9 +131,9 @@ export class CPU {
    * @param registerType
    * @return u8 number
    */
-  public readRegister8Bit(registerType: RegisterType) {
-    if (registerType === RegisterType.HL) {
-      return this.emulator.busRead(this.readRegister(RegisterType.HL));
+  public readRegister8Bit(registerType: REGISTER_TYPE) {
+    if (registerType === REGISTER_TYPE.HL) {
+      return this.emulator.busRead(this.readRegister(REGISTER_TYPE.HL));
     }
     return this.registers.read8Bit(registerType);
   }
@@ -143,9 +143,9 @@ export class CPU {
    * @param value u8 number
    * @return void
    */
-  public setRegister8Bit(registerType: RegisterType, value: number) {
-    if (registerType === RegisterType.HL) {
-      this.emulator.busWrite(this.readRegister(RegisterType.HL), value);
+  public setRegister8Bit(registerType: REGISTER_TYPE, value: number) {
+    if (registerType === REGISTER_TYPE.HL) {
+      this.emulator.busWrite(this.readRegister(REGISTER_TYPE.HL), value);
     } else {
       this.registers.set8Bit(registerType, value);
     }

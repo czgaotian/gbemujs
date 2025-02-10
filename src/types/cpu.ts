@@ -1,4 +1,4 @@
-export enum AddressMode {
+export enum ADDRESS_MODE {
   IMPLIED,
   R_D16,
   R_R,
@@ -22,7 +22,7 @@ export enum AddressMode {
   R_A16,
 }
 
-export enum RegisterType {
+export enum REGISTER_TYPE {
   NONE,
   A,
   F,
@@ -40,7 +40,7 @@ export enum RegisterType {
   PC,
 }
 
-export enum InstructionType {
+export enum INSTRUCTION_TYPE {
   NONE,
   NOP,
   LD,
@@ -92,7 +92,7 @@ export enum InstructionType {
   SET,
 }
 
-export enum ConditionType {
+export enum CONDITION_TYPE {
   NONE,
   NZ,
   Z,
@@ -101,17 +101,17 @@ export enum ConditionType {
 }
 
 export interface Instruction {
-  type: InstructionType;
-  addressMode: AddressMode;
-  registerType1: RegisterType;
-  registerType2: RegisterType;
-  conditionType: ConditionType;
+  type: INSTRUCTION_TYPE;
+  addressMode: ADDRESS_MODE;
+  registerType1: REGISTER_TYPE;
+  registerType2: REGISTER_TYPE;
+  conditionType: CONDITION_TYPE;
   param: number;
 }
 
 export type Flag = true | false | 1 | 0 | -1;
 
-export enum InterruptType {
+export enum INTERRUPT_TYPE {
   NONE = 0,
   VBLANK = 1,
   LCD_STAT = 2,

@@ -5,9 +5,9 @@ import {
 } from '../constants';
 import { CPU } from '../cpu/cpu';
 import {
-  AddressMode as AM,
-  InstructionType as IN,
-  RegisterType as RT,
+  ADDRESS_MODE as AM,
+  INSTRUCTION_TYPE as IN,
+  REGISTER_TYPE as RT,
 } from '../types';
 
 export const getInstructionTypeName = (instructionType?: IN) => {

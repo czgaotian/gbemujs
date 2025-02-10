@@ -1,5 +1,5 @@
 import { CPU } from "./cpu";
-import { InterruptType as IT } from "../types";
+import { INTERRUPT_TYPE as IT } from "../types";
 
 export function handleInterrupts(this: CPU) {
   const int_flags = this.emulator.intFlags & this.emulator.intEnableFlags;

@@ -1,4 +1,4 @@
-import { CartridgeType, CartridgeInfo } from "../types";
+import { CARTRIDGE_TYPE, CartridgeInfo } from "../types";
 
 // 内存控制器基类
 abstract class MemoryBankController {
@@ -126,7 +126,7 @@ export class Cartridge {
       logo: this.rom.slice(0x0104, 0x0134),
       newLicenseCode: this.rom.slice(0x0143, 0x0146),
       sgbFlag: this.rom[0x0146],
-      type: this.rom[0x0147] as CartridgeType,
+      type: this.rom[0x0147] as CARTRIDGE_TYPE,
       romSize: 32 << this.rom[0x0148],
       ramSize: ramSize,
       destinationCode: this.rom[0x014a],
@@ -141,12 +141,12 @@ export class Cartridge {
     if (!this.cartridgeInfo) return;
 
     switch (this.cartridgeInfo.type) {
-      case CartridgeType.ROM_ONLY:
+      case CARTRIDGE_TYPE.ROM_ONLY:
         this.mbc = new ROMOnly(this.rom, 0);
         break;
-      case CartridgeType.MBC1:
-      case CartridgeType.MBC1_RAM:
-      case CartridgeType.MBC1_RAM_BATTERY:
+      case CARTRIDGE_TYPE.MBC1:
+      case CARTRIDGE_TYPE.MBC1_RAM:
+      case CARTRIDGE_TYPE.MBC1_RAM_BATTERY:
         this.mbc = new MBC1(this.rom, this.cartridgeInfo.ramSize);
         break;
       // TODO: 实现其他MBC类型
@@ -166,14 +166,14 @@ export class Cartridge {
     if (!this.cartridgeInfo) return null;
 
     const hasBattery = [
-      CartridgeType.MBC1_RAM_BATTERY,
-      CartridgeType.MBC2_BATTERY,
-      CartridgeType.ROM_RAM_BATTERY,
-      CartridgeType.MBC3_TIMER_BATTERY,
-      CartridgeType.MBC3_TIMER_RAM_BATTERY,
-      CartridgeType.MBC3_RAM_BATTERY,
-      CartridgeType.MBC5_RAM_BATTERY,
-      CartridgeType.MBC5_RUMBLE_RAM_BATTERY,
+      CARTRIDGE_TYPE.MBC1_RAM_BATTERY,
+      CARTRIDGE_TYPE.MBC2_BATTERY,
+      CARTRIDGE_TYPE.ROM_RAM_BATTERY,
+      CARTRIDGE_TYPE.MBC3_TIMER_BATTERY,
+      CARTRIDGE_TYPE.MBC3_TIMER_RAM_BATTERY,
+      CARTRIDGE_TYPE.MBC3_RAM_BATTERY,
+      CARTRIDGE_TYPE.MBC5_RAM_BATTERY,
+      CARTRIDGE_TYPE.MBC5_RUMBLE_RAM_BATTERY,
     ].includes(this.cartridgeInfo.type);
 
     if (hasBattery && this.mbc) {

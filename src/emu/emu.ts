@@ -6,7 +6,7 @@ import { Joypad } from '../joypad/joypad';
 import { Cartridge } from '../cartridge/cartridge';
 import { Timer } from '../timer/timer';
 import { Serial } from '../serial/serial';
-import { InterruptType as IT } from '../types';
+import { INTERRUPT_TYPE as IT } from '../types';
 
 export class GameBoy {
   public cpu: CPU;
@@ -122,23 +122,23 @@ export class GameBoy {
   }
 
   /**
-   * @param address
+   * @param address u16
    * @return u8 number
    */
   public busRead = busRead.bind(this);
   /**
-   * @param address
+   * @param address u16
    * @param value u8 number
    * @return void
    */
   public busWrite = busWrite.bind(this);
   /**
-   * @param address
+   * @param address u16
    * @return u16 number
    */
   public busRead16 = busRead16.bind(this);
   /**
-   * @param address
+   * @param address u16
    * @param value u16 number
    * @return void
    */

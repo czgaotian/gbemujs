@@ -1,4 +1,4 @@
-import { Instruction, AddressMode as AM, ConditionType as CT, InstructionType as IN, RegisterType as RT } from "../types";
+import { Instruction, ADDRESS_MODE as AM, CONDITION_TYPE as CT, INSTRUCTION_TYPE as IN, REGISTER_TYPE as RT } from "../types";
 
 const instruction = (type: IN, addressMode: AM = AM.IMPLIED, registerType1: RT = RT.NONE, registerType2: RT = RT.NONE, conditionType: CT = CT.NONE, param: number = 0): Instruction => {
   return {

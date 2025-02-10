@@ -1,4 +1,4 @@
-import { Flag, RegisterType } from '../types';
+import { Flag, REGISTER_TYPE } from '../types';
 import { bitGet, bitSet } from '../utils';
 import { CPU } from './cpu';
 
@@ -33,88 +33,88 @@ export class Registers {
   }
 
   // return u16 number
-  public read(registerType: RegisterType): number {
+  public read(registerType: REGISTER_TYPE): number {
     switch (registerType) {
-      case RegisterType.A:
+      case REGISTER_TYPE.A:
         return this.a & 0xFFFF;
-      case RegisterType.F:
+      case REGISTER_TYPE.F:
         return this.f & 0xFFFF;
-      case RegisterType.B:
+      case REGISTER_TYPE.B:
         return this.b & 0xFFFF;
-      case RegisterType.C:
+      case REGISTER_TYPE.C:
         return this.c & 0xFFFF;
-      case RegisterType.D:
+      case REGISTER_TYPE.D:
         return this.d & 0xFFFF;
-      case RegisterType.E:
+      case REGISTER_TYPE.E:
         return this.e & 0xFFFF;
-      case RegisterType.H:
+      case REGISTER_TYPE.H:
         return this.h & 0xFFFF;
-      case RegisterType.L:
+      case REGISTER_TYPE.L:
         return this.l & 0xFFFF;
-      case RegisterType.AF:
+      case REGISTER_TYPE.AF:
         return this.af & 0xFFFF;
-      case RegisterType.BC:
+      case REGISTER_TYPE.BC:
         return this.bc & 0xFFFF;
-      case RegisterType.DE:
+      case REGISTER_TYPE.DE:
         return this.de & 0xFFFF;
-      case RegisterType.HL:
+      case REGISTER_TYPE.HL:
         return this.hl & 0xFFFF;
-      case RegisterType.SP:
+      case REGISTER_TYPE.SP:
         return this.sp & 0xFFFF;
-      case RegisterType.PC:
+      case REGISTER_TYPE.PC:
         return this.pc & 0xFFFF ;
       default:
         return 0;
     }
   }
 
-  public set(registerType: RegisterType, val: number) {
+  public set(registerType: REGISTER_TYPE, val: number) {
     switch (registerType) {
-      case RegisterType.A:
+      case REGISTER_TYPE.A:
         this.a = val & 0xFF;
         break;
-      case RegisterType.F:
+      case REGISTER_TYPE.F:
         this.f = val & 0xF0; // The lower 4 bits of F should always be 0.
         break;
-      case RegisterType.B:
+      case REGISTER_TYPE.B:
         this.b = val & 0xFF;
         break;
-      case RegisterType.C:
+      case REGISTER_TYPE.C:
         this.c = val & 0xFF;
         break;
-      case RegisterType.D:
+      case REGISTER_TYPE.D:
         this.d = val & 0xFF;
         break;
-      case RegisterType.E:
+      case REGISTER_TYPE.E:
         this.e = val & 0xFF;
         break;
-      case RegisterType.H:
+      case REGISTER_TYPE.H:
         this.h = val & 0xFF;
         break;
-      case RegisterType.L:
+      case REGISTER_TYPE.L:
         this.l = val & 0xFF;
         break;
 
-      case RegisterType.AF:
+      case REGISTER_TYPE.AF:
         this.af = val & 0xFFFF;
         break;
-      case RegisterType.BC:
+      case REGISTER_TYPE.BC:
         this.bc = val & 0xFFFF;
         break;
-      case RegisterType.DE:
+      case REGISTER_TYPE.DE:
         this.de = val & 0xFFFF;
         break;
-      case RegisterType.HL:
+      case REGISTER_TYPE.HL:
         this.hl = val & 0xFFFF;
         break;
 
-      case RegisterType.PC:
+      case REGISTER_TYPE.PC:
         this.pc = val & 0xFFFF;
         break;
-      case RegisterType.SP:
+      case REGISTER_TYPE.SP:
         this.sp = val & 0xFFFF;
         break;
-      case RegisterType.NONE:
+      case REGISTER_TYPE.NONE:
         break;
     }
   }
@@ -137,51 +137,56 @@ export class Registers {
     }
   }
 
-  public read8Bit(registerType: RegisterType): number {
+  public read8Bit(registerType: REGISTER_TYPE): number {
     switch (registerType) {
-      case RegisterType.A:
+      case REGISTER_TYPE.A:
         return this.a & 0xFF;
-      case RegisterType.B:
+      case REGISTER_TYPE.F:
+        return this.f & 0xF0;
+      case REGISTER_TYPE.B:
         return this.b & 0xFF;
-      case RegisterType.C:
+      case REGISTER_TYPE.C:
         return this.c & 0xFF;
-      case RegisterType.D:
+      case REGISTER_TYPE.D:
         return this.d & 0xFF;
-      case RegisterType.E:
+      case REGISTER_TYPE.E:
         return this.e & 0xFF;
-      case RegisterType.H:
+      case REGISTER_TYPE.H:
         return this.h & 0xFF;
-      case RegisterType.L:
+      case REGISTER_TYPE.L:
         return this.l & 0xFF;
       default:
         throw new Error('Invalid register type');
     }
   }
 
-  public set8Bit(registerType: RegisterType, val: number) {
+  public set8Bit(registerType: REGISTER_TYPE, val: number) {
     switch (registerType) {
-      case RegisterType.A:
+      case REGISTER_TYPE.A:
         this.a = val & 0xFF;
         break;
-      case RegisterType.B:
+      case REGISTER_TYPE.F:
+        this.f = val & 0xFF;
+        break;
+      case REGISTER_TYPE.B:
         this.b = val & 0xFF;
         break;
-      case RegisterType.C:
+      case REGISTER_TYPE.C:
         this.c = val & 0xFF;
         break;
-      case RegisterType.D:
+      case REGISTER_TYPE.D:
         this.d = val & 0xFF;
         break;
-      case RegisterType.E:
+      case REGISTER_TYPE.E:
         this.e = val & 0xFF;
         break;
-      case RegisterType.H:
+      case REGISTER_TYPE.H:
         this.h = val & 0xFF;
         break;
-      case RegisterType.L:
+      case REGISTER_TYPE.L:
         this.l = val & 0xFF;
         break;
-      case RegisterType.NONE:
+      case REGISTER_TYPE.NONE:
         throw new Error('Invalid register type');
     }
   }
@@ -192,6 +197,14 @@ export class Registers {
 
   set a(value: number) {
     this._a = value & 0xFF;
+  }
+
+  get f() {
+    return this._f & 0xFF;
+  }
+
+  set f(value: number) {
+    this._f = value & 0xFF;
   }
 
   get b() {
@@ -240,14 +253,6 @@ export class Registers {
 
   set l(value: number) {
     this._l = value & 0xFF;
-  }
-
-  get f() {
-    return this._f & 0xFF;
-  }
-
-  set f(value: number) {
-    this._f = value & 0xFF;
   }
 
   get af() {
@@ -306,15 +311,15 @@ export class Registers {
     return bitGet(this.f, 7);
   }
 
-  public get flagC() {
-    return bitGet(this.f, 4);
+  public get flagN() {
+    return bitGet(this.f, 6);
   }
 
   public get flagH() {
-    return bitGet(this.f, 2);
+    return bitGet(this.f, 5);
   }
 
-  public get flagN() {
-    return bitGet(this.f, 6);
+  public get flagC() {
+    return bitGet(this.f, 4);
   }
 }

@@ -1,6 +1,6 @@
 import { CPU } from '../cpu/cpu';
 import { cpuLog } from '../utils';
-import { InstructionType } from '../types/cpu';
+import { INSTRUCTION_TYPE } from '../types/cpu';
 
 const logStack: string[] = [];
 let isShowLog = false;
