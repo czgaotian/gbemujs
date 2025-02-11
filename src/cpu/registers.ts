@@ -1,120 +1,109 @@
-import { Flag, REGISTER_TYPE } from '../types';
+import { Flag, REGISTER_TYPE as RT } from '../types';
 import { bitGet, bitSet } from '../utils';
-import { CPU } from './cpu';
-
 
 export class Registers {
-  // 8位寄存器
-  private _a: number = 0;
-  private _b: number = 0;
-  private _c: number = 0;
-  private _d: number = 0;
-  private _e: number = 0;
-  private _h: number = 0;
-  private _l: number = 0;
-  private _f: number = 0;
-
-  // 16位程序计数器和栈指针
-  private _pc: number = 0;
-  private _sp: number = 0;
+  // registers: a, f, b, c, d, e, h, l
+  private _registers8: Uint8Array = new Uint8Array(8);
+  // registers: pc, sp
+  private _registers16: Uint16Array = new Uint16Array(2);
 
   public init() {
-    this.a = 0x01;
-    this.b = 0x00;
-    this.c = 0x13;
-    this.d = 0x00;
-    this.e = 0xd8;
-    this.h = 0x01;
-    this.l = 0x4d;
-    this.f = 0xb0;
+    this.a = 0x01; 
+    this.f = 0xb0; 
+    this.b = 0x00; 
+    this.c = 0x13; 
+    this.d = 0x00; 
+    this.e = 0xd8; 
+    this.h = 0x01; 
+    this.l = 0x4d; 
 
-    this.sp = 0xfffe;
-    this.pc = 0x100; // 0x100 是游戏程序的入口点
+    this.pc = 0x100; 
+    this.sp = 0xfffe; 
   }
 
   // return u16 number
-  public read(registerType: REGISTER_TYPE): number {
+  public read(registerType: RT): number {
     switch (registerType) {
-      case REGISTER_TYPE.A:
-        return this.a & 0xFFFF;
-      case REGISTER_TYPE.F:
-        return this.f & 0xFFFF;
-      case REGISTER_TYPE.B:
-        return this.b & 0xFFFF;
-      case REGISTER_TYPE.C:
-        return this.c & 0xFFFF;
-      case REGISTER_TYPE.D:
-        return this.d & 0xFFFF;
-      case REGISTER_TYPE.E:
-        return this.e & 0xFFFF;
-      case REGISTER_TYPE.H:
-        return this.h & 0xFFFF;
-      case REGISTER_TYPE.L:
-        return this.l & 0xFFFF;
-      case REGISTER_TYPE.AF:
-        return this.af & 0xFFFF;
-      case REGISTER_TYPE.BC:
-        return this.bc & 0xFFFF;
-      case REGISTER_TYPE.DE:
-        return this.de & 0xFFFF;
-      case REGISTER_TYPE.HL:
-        return this.hl & 0xFFFF;
-      case REGISTER_TYPE.SP:
-        return this.sp & 0xFFFF;
-      case REGISTER_TYPE.PC:
-        return this.pc & 0xFFFF ;
+      case RT.A:
+        return this.a;
+      case RT.F:
+        return this.f;
+      case RT.B:
+        return this.b;
+      case RT.C:
+        return this.c;
+      case RT.D:
+        return this.d;
+      case RT.E:
+        return this.e;
+      case RT.H:
+        return this.h;
+      case RT.L:
+        return this.l;
+      case RT.AF:
+        return this.af;
+      case RT.BC:
+        return this.bc;
+      case RT.DE:
+        return this.de;
+      case RT.HL:
+        return this.hl;
+      case RT.SP:
+        return this.sp;
+      case RT.PC:
+        return this.pc;
       default:
         return 0;
     }
   }
 
-  public set(registerType: REGISTER_TYPE, val: number) {
+  public set(registerType: RT, val: number) {
     switch (registerType) {
-      case REGISTER_TYPE.A:
-        this.a = val & 0xFF;
+      case RT.A:
+        this.a = val;
         break;
-      case REGISTER_TYPE.F:
+      case RT.F:
         this.f = val & 0xF0; // The lower 4 bits of F should always be 0.
         break;
-      case REGISTER_TYPE.B:
-        this.b = val & 0xFF;
+      case RT.B:
+        this.b = val;
         break;
-      case REGISTER_TYPE.C:
-        this.c = val & 0xFF;
+      case RT.C:
+        this.c = val;
         break;
-      case REGISTER_TYPE.D:
-        this.d = val & 0xFF;
+      case RT.D:
+        this.d = val;
         break;
-      case REGISTER_TYPE.E:
-        this.e = val & 0xFF;
+      case RT.E:
+        this.e = val;
         break;
-      case REGISTER_TYPE.H:
-        this.h = val & 0xFF;
+      case RT.H:
+        this.h = val;
         break;
-      case REGISTER_TYPE.L:
-        this.l = val & 0xFF;
-        break;
-
-      case REGISTER_TYPE.AF:
-        this.af = val & 0xFFFF;
-        break;
-      case REGISTER_TYPE.BC:
-        this.bc = val & 0xFFFF;
-        break;
-      case REGISTER_TYPE.DE:
-        this.de = val & 0xFFFF;
-        break;
-      case REGISTER_TYPE.HL:
-        this.hl = val & 0xFFFF;
+      case RT.L:
+        this.l = val;
         break;
 
-      case REGISTER_TYPE.PC:
-        this.pc = val & 0xFFFF;
+      case RT.AF:
+        this.af = val;
         break;
-      case REGISTER_TYPE.SP:
-        this.sp = val & 0xFFFF;
+      case RT.BC:
+        this.bc = val;
         break;
-      case REGISTER_TYPE.NONE:
+      case RT.DE:
+        this.de = val;
+        break;
+      case RT.HL:
+        this.hl = val;
+        break;
+
+      case RT.PC:
+        this.pc = val;
+        break;
+      case RT.SP:
+        this.sp = val;
+        break;
+      case RT.NONE:
         break;
     }
   }
@@ -137,174 +126,174 @@ export class Registers {
     }
   }
 
-  public read8Bit(registerType: REGISTER_TYPE): number {
+  public read8Bit(registerType: RT): number {
     switch (registerType) {
-      case REGISTER_TYPE.A:
+      case RT.A:
         return this.a & 0xFF;
-      case REGISTER_TYPE.F:
+      case RT.F:
         return this.f & 0xF0;
-      case REGISTER_TYPE.B:
+      case RT.B:
         return this.b & 0xFF;
-      case REGISTER_TYPE.C:
+      case RT.C:
         return this.c & 0xFF;
-      case REGISTER_TYPE.D:
+      case RT.D:
         return this.d & 0xFF;
-      case REGISTER_TYPE.E:
+      case RT.E:
         return this.e & 0xFF;
-      case REGISTER_TYPE.H:
+      case RT.H:
         return this.h & 0xFF;
-      case REGISTER_TYPE.L:
+      case RT.L:
         return this.l & 0xFF;
       default:
         throw new Error('Invalid register type');
     }
   }
 
-  public set8Bit(registerType: REGISTER_TYPE, val: number) {
+  public set8Bit(registerType: RT, val: number) {
     switch (registerType) {
-      case REGISTER_TYPE.A:
+      case RT.A:
         this.a = val & 0xFF;
         break;
-      case REGISTER_TYPE.F:
+      case RT.F:
         this.f = val & 0xFF;
         break;
-      case REGISTER_TYPE.B:
+      case RT.B:
         this.b = val & 0xFF;
         break;
-      case REGISTER_TYPE.C:
+      case RT.C:
         this.c = val & 0xFF;
         break;
-      case REGISTER_TYPE.D:
+      case RT.D:
         this.d = val & 0xFF;
         break;
-      case REGISTER_TYPE.E:
+      case RT.E:
         this.e = val & 0xFF;
         break;
-      case REGISTER_TYPE.H:
+      case RT.H:
         this.h = val & 0xFF;
         break;
-      case REGISTER_TYPE.L:
+      case RT.L:
         this.l = val & 0xFF;
         break;
-      case REGISTER_TYPE.NONE:
+      case RT.NONE:
         throw new Error('Invalid register type');
     }
   }
 
   get a() {
-    return this._a & 0xFF;
+    return this._registers8[0];
   }
 
   set a(value: number) {
-    this._a = value & 0xFF;
+    this._registers8[0] = value;
   }
 
   get f() {
-    return this._f & 0xFF;
+    return this._registers8[1];
   }
 
   set f(value: number) {
-    this._f = value & 0xFF;
+    this._registers8[1] = value;
   }
 
   get b() {
-    return this._b & 0xFF;
+    return this._registers8[2];
   }
 
   set b(value: number) {
-    this._b = value & 0xFF;
+    this._registers8[2] = value;
   }
 
   get c() {
-    return this._c & 0xFF;
+    return this._registers8[3];
   }
 
   set c(value: number) {
-    this._c = value & 0xFF;
+    this._registers8[3] = value;
   }
 
   get d() {
-    return this._d & 0xFF;
+    return this._registers8[4];
   }
 
   set d(value: number) {
-    this._d = value & 0xFF;
+    this._registers8[4] = value;
   }
 
   get e() {
-    return this._e & 0xFF;
+    return this._registers8[5];
   }
 
   set e(value: number) {
-    this._e = value & 0xFF;
+    this._registers8[5] = value;
   }
 
   get h() {
-    return this._h & 0xFF;
+    return this._registers8[6];
   }
 
   set h(value: number) {
-    this._h = value & 0xFF;
+    this._registers8[6] = value;
   }
 
   get l() {
-    return this._l & 0xFF;
+    return this._registers8[7];
   }
 
   set l(value: number) {
-    this._l = value & 0xFF;
+    this._registers8[7] = value;
   }
 
   get af() {
-    return (this._a << 8) | this._f;
+    return (this._registers8[0] << 8) | this._registers8[1];
   }
 
   set af(value: number) {
-    this._a = value >>> 8 & 0xFF;
-    this._f = value & 0xF0;
+    this._registers8[0] = value >>> 8 & 0xFF;
+    this._registers8[1] = value & 0xF0;
   }
 
   get bc() {
-    return (this._b << 8) | this._c;
+    return (this._registers8[2] << 8) | this._registers8[3];
   }
 
   set bc(value: number) {
-    this._b = value >>> 8 & 0xFF;
-    this._c = value & 0xFF;
+    this._registers8[2] = value >>> 8 & 0xFF;
+    this._registers8[3] = value & 0xFF;
   }
 
   get de() {
-    return (this._d << 8) | this._e;
+    return (this._registers8[4] << 8) | this._registers8[5];
   }
 
   set de(value: number) {
-    this._d = value >>> 8 & 0xFF;
-    this._e = value & 0xFF;
+    this._registers8[4] = value >>> 8 & 0xFF;
+    this._registers8[5] = value & 0xFF;
   }
 
   get hl() {
-    return (this._h << 8) | this._l;
+    return (this._registers8[6] << 8) | this._registers8[7];
   }
 
   set hl(value: number) {
-    this._h = value >>> 8 & 0xFF;
-    this._l = value & 0xFF;
+    this._registers8[6] = value >>> 8 & 0xFF;
+    this._registers8[7] = value & 0xFF;
   }
 
   get pc() {
-    return this._pc & 0xFFFF;
+    return this._registers16[0];
   }
 
   set pc(value: number) {
-    this._pc = value & 0xFFFF;
+    this._registers16[0] = value;
   }
 
   get sp() {
-    return this._sp & 0xFFFF;
+    return this._registers16[1];
   }
 
   set sp(value: number) {
-    this._sp = value & 0xFFFF;
+    this._registers16[1] = value;
   }
 
   public get flagZ() {
