@@ -2,10 +2,8 @@ import { Flag, REGISTER_TYPE as RT } from '../types';
 import { bitGet, bitSet } from '../utils';
 
 export class Registers {
-  // registers: a, f, b, c, d, e, h, l
-  private _registers8: Uint8Array = new Uint8Array(8);
-  // registers: pc, sp
-  private _registers16: Uint16Array = new Uint16Array(2);
+  // registers: a, f, b, c, d, e, h, l,  pc, sp
+  private _register = new DataView(new ArrayBuffer(12));
 
   public init() {
     this.a = 0x01; 
@@ -25,21 +23,21 @@ export class Registers {
   public read(registerType: RT): number {
     switch (registerType) {
       case RT.A:
-        return this.a;
+        return this.a & 0xFFFF;
       case RT.F:
-        return this.f;
+        return this.f & 0xFFFF;
       case RT.B:
-        return this.b;
+        return this.b & 0xFFFF;
       case RT.C:
-        return this.c;
+        return this.c & 0xFFFF;
       case RT.D:
-        return this.d;
+        return this.d & 0xFFFF;
       case RT.E:
-        return this.e;
+        return this.e & 0xFFFF;
       case RT.H:
-        return this.h;
+        return this.h & 0xFFFF;
       case RT.L:
-        return this.l;
+        return this.l & 0xFFFF;
       case RT.AF:
         return this.af;
       case RT.BC:
@@ -108,23 +106,6 @@ export class Registers {
     }
   }
 
-  public setFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
-    let f = this.f;
-    if (z != -1) {
-      f = bitSet(f, 7, !!z);
-    }
-    if (n != -1) {
-      f = bitSet(f, 6, !!n);
-    }
-    if (h != -1) {
-      f = bitSet(f, 5, !!h);
-    }
-    if (c != -1) {
-      f = bitSet(f, 4, !!c);
-    }
-    this.f = f;
-  }
-
   public read8Bit(registerType: RT): number {
     switch (registerType) {
       case RT.A:
@@ -154,7 +135,7 @@ export class Registers {
         this.a = val & 0xFF;
         break;
       case RT.F:
-        this.f = val & 0xFF;
+        this.f = val & 0xF0;
         break;
       case RT.B:
         this.b = val & 0xFF;
@@ -179,120 +160,133 @@ export class Registers {
     }
   }
 
+  public setFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
+    let f = this.f;
+    if (z != -1) {
+      f = bitSet(f, 7, !!z);
+    }
+    if (n != -1) {
+      f = bitSet(f, 6, !!n);
+    }
+    if (h != -1) {
+      f = bitSet(f, 5, !!h);
+    }
+    if (c != -1) {
+      f = bitSet(f, 4, !!c);
+    }
+    this.f = f;
+  }
+
   get a() {
-    return this._registers8[0];
+    return this._register.getUint8(0);
   }
 
   set a(value: number) {
-    this._registers8[0] = value;
+    this._register.setUint8(0, value);
   }
 
   get f() {
-    return this._registers8[1];
+    return this._register.getUint8(1);
   }
 
   set f(value: number) {
-    this._registers8[1] = value;
+    this._register.setUint8(1, value);
   }
 
   get b() {
-    return this._registers8[2];
+    return this._register.getUint8(2);
   }
 
   set b(value: number) {
-    this._registers8[2] = value;
+    this._register.setUint8(2, value);
   }
 
   get c() {
-    return this._registers8[3];
+    return this._register.getUint8(3);
   }
 
   set c(value: number) {
-    this._registers8[3] = value;
+    this._register.setUint8(3, value);
   }
 
   get d() {
-    return this._registers8[4];
+    return this._register.getUint8(4);
   }
 
   set d(value: number) {
-    this._registers8[4] = value;
+    this._register.setUint8(4, value);
   }
 
   get e() {
-    return this._registers8[5];
+    return this._register.getUint8(5);
   }
 
   set e(value: number) {
-    this._registers8[5] = value;
+    this._register.setUint8(5, value);
   }
 
   get h() {
-    return this._registers8[6];
+    return this._register.getUint8(6);
   }
 
   set h(value: number) {
-    this._registers8[6] = value;
+    this._register.setUint8(6, value);
   }
 
   get l() {
-    return this._registers8[7];
+    return this._register.getUint8(7);
   }
 
   set l(value: number) {
-    this._registers8[7] = value;
+    this._register.setUint8(7, value);
   }
 
   get af() {
-    return (this._registers8[0] << 8) | this._registers8[1];
+    return this._register.getUint16(0);
   }
 
   set af(value: number) {
-    this._registers8[0] = value >>> 8 & 0xFF;
-    this._registers8[1] = value & 0xF0;
+    this._register.setUint16(0, value);
   }
 
   get bc() {
-    return (this._registers8[2] << 8) | this._registers8[3];
+    return this._register.getUint16(2);
   }
 
   set bc(value: number) {
-    this._registers8[2] = value >>> 8 & 0xFF;
-    this._registers8[3] = value & 0xFF;
+    this._register.setUint16(2, value);
   }
 
   get de() {
-    return (this._registers8[4] << 8) | this._registers8[5];
+    return this._register.getUint16(4);
   }
 
   set de(value: number) {
-    this._registers8[4] = value >>> 8 & 0xFF;
-    this._registers8[5] = value & 0xFF;
+    this._register.setUint16(4, value);
   }
 
   get hl() {
-    return (this._registers8[6] << 8) | this._registers8[7];
+    return this._register.getUint16(6);
   }
 
   set hl(value: number) {
-    this._registers8[6] = value >>> 8 & 0xFF;
-    this._registers8[7] = value & 0xFF;
+    this._register.setUint16(6, value);
   }
 
   get pc() {
-    return this._registers16[0];
+    return this._register.getUint16(8);
   }
 
   set pc(value: number) {
-    this._registers16[0] = value;
+    this._register.setUint16(8, value);
   }
 
   get sp() {
-    return this._registers16[1];
+    return this._register.getUint16(10);
   }
 
   set sp(value: number) {
-    this._registers16[1] = value;
+    this._register.setUint16(10, value);
   }
 
   public get flagZ() {
