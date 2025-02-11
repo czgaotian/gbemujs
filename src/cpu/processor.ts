@@ -535,34 +535,38 @@ function STOP(this: CPU) {
 
 // 将上一步的运算结果（从寄存器A中读取）转换为BCD（binary coded decimal）码表示
 export function DAA(this: CPU) {
-  let c: 0 | 1 = 0; // 用于指示是否需要设置进位标志
+  let c: 1 | -1 = -1; // 用于指示是否需要修改进位标志
 
   const registerA = this.registers.a;
   const flagC = this.registers.flagC;
   const flagN = this.registers.flagN;
   const flagH = this.registers.flagH;
 
+  let result = registerA;
+
   if (flagN) {
     if (flagC) {
-      if (flagH) this.registers.a += 0x9A;
-      else this.registers.a += 0xA0;
+      if (flagH) result += 0x9A;
+      else result += 0xA0;
     }
     else {
-      if (flagH) this.registers.a += 0xFA;
+      if (flagH) result += 0xFA;
     }
   }
   else {
     if (flagC || (registerA > 0x99)) {
-      if (flagH || ((registerA & 0x0F) > 0x09)) this.registers.a += 0x66;
-      else this.registers.a += 0x60;
+      if (flagH || ((registerA & 0x0F) > 0x09)) result += 0x66;
+      else result += 0x60;
       c = 1;
     }
     else {
-      if (flagH || ((registerA & 0x0F) > 0x09)) this.registers.a += 0x06;
+      if (flagH || ((registerA & 0x0F) > 0x09)) result += 0x06;
     }
   }
 
-  this.setFlags(registerA === 0, -1, 0, c);
+  result = result & 0xFF;
+  this.registers.a = result;
+  this.setFlags(result === 0, -1, 0, c);
 }
 
 function SCF(this: CPU) {
