@@ -291,29 +291,28 @@ function LDH(this: CPU) {
 }
 
 function checkCondition(cpu: CPU): boolean {
-  if (!cpu.instruction) {
-    throw new Error('Null instruction');
-  }
+  const flagZ = cpu.registers.flagZ;
+  const flagC = cpu.registers.flagC;
 
   switch (cpu.instruction.conditionType) {
     case CT.NONE:
       return true;
     case CT.C:
-      return !!cpu.registers.flagC;
+      return !!flagC;
     case CT.NC:
-      return !cpu.registers.flagC;
+      return !flagC;
     case CT.Z:
-      return !!cpu.registers.flagZ;
+      return !!flagZ;
     case CT.NZ:
-      return !cpu.registers.flagZ;
+      return !flagZ;
     default:
       return false;
   }
 }
 
-function gotoAddress(cpu: CPU, addr: number, pushpc: boolean) {
+function gotoAddress(cpu: CPU, addr: number, pushPc: boolean) {
   if (checkCondition(cpu)) {
-    if (pushpc) {
+    if (pushPc) {
       cpu.emulator.tick(2);
       cpu.stackPush16(cpu.registers.pc);
     }
@@ -328,7 +327,7 @@ function JP(this: CPU) {
 
 // Jump Relative, 相对跳转操作
 export function JR(this: CPU) {
-  const relative = (this.fetchedData & 0xFF) << 24 >> 24;
+  const relative = this.fetchedData << 24 >> 24;
   const addr = (this.registers.pc + relative) & 0xFFFF;
   gotoAddress(this, addr, false);
 }
@@ -338,21 +337,18 @@ function CALL(this: CPU) {
 }
 
 function RST(this: CPU) {
-  if (!this.instruction) {
-    throw new Error('Null instruction');
-  }
-  gotoAddress(this, this.instruction?.param, true);
+  gotoAddress(this, this.instruction.param, true);
 }
 
 function RET(this: CPU) {
-  if (this.instruction?.conditionType != CT.NONE) {
+  if (this.instruction.conditionType != CT.NONE) {
     this.emulator.tick(1);
   }
 
   if (checkCondition(this)) {
-    const low = this.stackPop() & 0xFF;
+    const low = this.stackPop();
     this.emulator.tick(1);
-    const high = this.stackPop() & 0xFF;
+    const high = this.stackPop();
     this.emulator.tick(1);
 
     const n = (high << 8) | low;
@@ -405,10 +401,6 @@ function PUSH(this: CPU) {
 }
 
 function INC(this: CPU) {
-  if (!this.instruction) {
-    throw new Error('Null instruction');
-  }
-
   let val = this.readRegister(this.instruction.registerType1) + 1;
 
   if (is16Bit(this.instruction.registerType1)) {
@@ -478,18 +470,14 @@ function SUB(this: CPU) {
   this.setFlags(z, true, h, c);
 }
 
-function SBC(this: CPU) {
-  if (!this.instruction) {
-    throw new Error('Null instruction');
-  }
-
+export function SBC(this: CPU) {
+  const flagC = this.registers.flagC;
   const value1 = this.readRegister(this.instruction.registerType1);
   const value2 = this.fetchedData;
-
-  const result = (value1 - value2 - this.registers.flagC) & 0xffff;
+  const result = (value1 - value2 - flagC) & 0xFF;
 
   this.setRegister(this.instruction.registerType1, result);
-  this.setFlags(result === 0, true, ((value1 & 0xF) - (value2 & 0xF) - this.registers.flagC) < 0, result < 0);
+  this.setFlags(result === 0, true, (value1 & 0xF) < (value2 & 0xF) + flagC, value1 < value2 + flagC);
 }
 
 function ADC(this: CPU) {
