@@ -4,11 +4,8 @@ import { INTERRUPT_TYPE as IT } from '../types';
 
 export class Serial {
   public emu: GameBoy;
-
-  // 0xFF01 Serial transfer data.
-  sb: number = 0;
-  // 0xFF02 Serial control.
-  sc: number = 0;
+  // 0xFF01 Serial transfer data, 0xFF02 Serial control.
+  public registers = new Uint8Array(2);
 
   transfering: boolean = false;
 
@@ -95,5 +92,21 @@ export class Serial {
 
   get clockSelect() {
     return this.sc & 0x3;
+  }
+
+  get sb() {
+    return this.registers[0];
+  }
+
+  set sb(value: number) {
+    this.registers[0] = value;
+  }
+
+  get sc() {
+    return this.registers[1];
+  }
+
+  set sc(value: number) {
+    this.registers[1] = value;
   }
 }
