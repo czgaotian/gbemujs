@@ -14,14 +14,18 @@ export function debug(pc: number, cpu: CPU) {
     logStack.shift();
   }
 
-  if (`${pc.toString(16).padStart(2, '0')}` === 'c369') {
+  // if (`${pc.toString(16).padStart(2, '0')}` === 'c369') {
     // console.log(logStack);
     // cpu.emulator.paused = true;
-  }
+  // }
 
   // if (cpu.instruction?.type === InstructionType.DAA) {
   //   cpu.emulator.isDebug = true;
   // }
+
+  if (logStack.length > 200) {
+    logStack.shift();
+  }
 
   if (cpu.emulator.isDebug) {
     if (!isShowLog) { 
