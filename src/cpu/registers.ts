@@ -109,21 +109,20 @@ export class Registers {
   }
 
   public setFlags(z: Flag, n: Flag, h: Flag, c: Flag) {
+    let f = this.f;
     if (z != -1) {
-      this.f = bitSet(this.f, 7, !!z);
+      f = bitSet(f, 7, !!z);
     }
-
     if (n != -1) {
-      this.f = bitSet(this.f, 6, !!n);
+      f = bitSet(f, 6, !!n);
     }
-
     if (h != -1) {
-      this.f = bitSet(this.f, 5, !!h);
+      f = bitSet(f, 5, !!h);
     }
-
     if (c != -1) {
-      this.f = bitSet(this.f, 4, !!c);
+      f = bitSet(f, 4, !!c);
     }
+    this.f = f;
   }
 
   public read8Bit(registerType: RT): number {

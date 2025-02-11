@@ -1,7 +1,7 @@
 <html>
 
 <body>
-  <div style="display: flex; justify-content: center; margin-bottom: 10px;">
+  <div style="display: flex; margin-bottom: 10px;">
     <canvas id="screen" width="320" height="288" style="border: 1px solid #000;"></canvas>
   </div>
   <div style="margin-bottom: 10px;">
@@ -11,9 +11,15 @@
     <button id="console">console</button>
   </div>
   <div>
-    <div>
-      <div>Serial Output</div>
-      <pre id="serial-output" style="margin: 0; border: 1px solid #000; min-height: 1rem;"></pre>
+    <div style="display: flex; gap: 10px;">
+      <div style="flex: 1">
+        <div>Serial Output</div>
+        <pre id="serial-output" style="margin: 0; border: 1px solid #000; min-height: 1rem;"></pre>
+      </div>
+      <div style="flex: 1">
+        <div>Tiles</div>
+        <canvas id="tile-canvas" width="160" height="144" style="border: 1px solid #000;"></canvas>
+      </div>
     </div>
 
 </body>

@@ -1,5 +1,6 @@
 import {
   ADDRESS_MODE,
+  INSTRUCTION_TYPE,
   Instruction,
   CONDITION_TYPE,
   Flag,
@@ -27,7 +28,14 @@ export class CPU {
 
   private _opcode: number = 0;
   private _fetchedData: number = 0;
-  public instruction?: Instruction;
+  public instruction: Instruction = {
+    type: INSTRUCTION_TYPE.NOP,
+    addressMode: ADDRESS_MODE.IMPLIED,
+    registerType1: REGISTER_TYPE.NONE,
+    registerType2: REGISTER_TYPE.NONE,
+    conditionType: CONDITION_TYPE.NONE,
+    param: 0,
+  };
   private _memoryDestination: number = 0;
   public destinationIsMemory: boolean = false;
   public halted: boolean = false;

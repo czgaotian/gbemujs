@@ -187,7 +187,7 @@ export class Cartridge {
     this.mbc?.loadRamData(data);
   }
 
-  public cartridgeRead(address: number) {
+  public read(address: number) {
     if (address <= 0x7fff) {
       return this.rom[address];
     }
@@ -195,7 +195,7 @@ export class Cartridge {
     return 0xff;
   }
 
-  public cartridgeWrite(address: number, value: number) {
+  public write(address: number, value: number) {
     // throw new Error("Not implemented");
   }
 }

@@ -154,17 +154,7 @@ export const cpuLog = (pc: number, cpu: CPU) => {
     .padStart(2, '0')} ${cpu.emulator
     .busRead(pc + 2)
     .toString(16)
-    .padStart(2, '0')}) A: ${cpu.registers.a
-    .toString(16)
-    .padStart(2, '0')} F: ${registerFDisplay(
+    .padStart(2, '0')}) A: ${new Number(cpu.registers.a).toString(16).padStart(2, '0')} F: ${registerFDisplay(
     cpu.registers.f
-  )} BC: ${cpu.registers.b.toString(16).padStart(2, '0')}${cpu.registers.c
-    .toString(16)
-    .padStart(2, '0')} DE: ${cpu.registers.d
-    .toString(16)
-    .padStart(2, '0')}${cpu.registers.e
-    .toString(16)
-    .padStart(2, '0')} HL: ${cpu.registers.h
-    .toString(16)
-    .padStart(2, '0')}${cpu.registers.l.toString(16).padStart(2, '0')}`;
+  )} BC: ${new Number(cpu.registers.b).toString(16).padStart(2, '0')}${new Number(cpu.registers.c).toString(16).padStart(2, '0')} DE: ${new Number(cpu.registers.d).toString(16).padStart(2, '0')}${new Number(cpu.registers.e).toString(16).padStart(2, '0')} HL: ${new Number(cpu.registers.h).toString(16).padStart(2, '0')}${new Number(cpu.registers.l).toString(16).padStart(2, '0')}`;
 };

@@ -19,19 +19,15 @@ import { GameBoy } from "./emu";
  * @returns u8
  */
 export function busRead(this: GameBoy, address: number): number {
-    if (!address) {
-    this.paused = true;
-  }
-
   if (address <= 0x7FFF) {
-    return this.cartridge.cartridgeRead(address) & 0xFF;
+    return this.cartridge.read(address) & 0xFF;
   }
   if (address >= 0x8000 && address <= 0x97FF) {
     return this.vram[address - 0x8000] & 0xFF;
   }
   if (address <= 0xBFFF) {
     // 卡带ROM和RAM区域
-    return this.cartridge.cartridgeRead(address) & 0xFF;
+    return this.cartridge.read(address) & 0xFF;
   }
   if (address <= 0xDFFF) {
     // work ram
@@ -97,7 +93,7 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
   }
   if (address <= 0xBFFF) {
     // 卡带ROM和RAM区域
-    this.cartridge.cartridgeWrite(address, value);
+    this.cartridge.write(address, value);
     return;
   }
   if (address <= 0xDFFF) {

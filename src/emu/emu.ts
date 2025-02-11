@@ -23,9 +23,9 @@ export class GameBoy {
   public paused: boolean = false;
   public isDebug: boolean = false;
 
-  public vram: Uint8Array;
-  public wram: Uint8Array;
-  public hram: Uint8Array;
+  public vram: Uint8Array = new Uint8Array(0x2000);
+  public wram: Uint8Array = new Uint8Array(0x2000);
+  public hram: Uint8Array = new Uint8Array(0x80);
 
   public intFlags: number;
   public intEnableFlags: number;
@@ -40,10 +40,6 @@ export class GameBoy {
     this.serial = new Serial(this);
 
     this.lastTime = performance.now();
-
-    this.vram = new Uint8Array(0x2000); // video ram
-    this.wram = new Uint8Array(0x2000); // working ram
-    this.hram = new Uint8Array(0x80); // high ram
 
     // 0xFF0F - The interruption flags.
     this.intFlags = IT.NONE;
