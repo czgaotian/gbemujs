@@ -224,53 +224,54 @@ const is16Bit = (rt: RT) => {
   return rt >= RT.AF;
 }
 
-function LD(this: CPU) {
-  if (!this.instruction) {
-    throw new Error('Null instruction');
-  }
+export function LD(this: CPU) {
+  const {registerType1, registerType2, addressMode} = this.instruction;
+  const {fetchedData, destinationIsMemory, memoryDestination} = this;
 
-  if (this.destinationIsMemory) // 写入内存 (dest_is_mem 为 true)
+  if (destinationIsMemory) // 写入内存 (dest_is_mem 为 true)
   {
     // LD (BC), A for instance...
-    if (is16Bit(this.instruction.registerType2)) {
+    if (is16Bit(registerType2)) {
       this.emulator.tick(1); // 16位数据写入，需要额外周期
-      this.emulator.busWrite16(this.memoryDestination, this.fetchedData);
+      this.emulator.busWrite16(memoryDestination, fetchedData);
     }
     else {
-      this.emulator.busWrite(this.memoryDestination, this.fetchedData);
+      this.emulator.busWrite(memoryDestination, fetchedData);
     }
-
     this.emulator.tick(1);
 
     return;
   }
 
   /*
-  LD HL,SP+r8
+  0xF8 LD HL,SP+r8
   这个指令将SP加上r8的结果存入HL寄存器。它会设置以下标志位:
 
   零标志(Z)和负标志(N)被清零
   半进位标志(H):低4位相加≥0x10时置1
   进位标志(C):低8位相加≥0x100时置1
   */
-
-  if (this.instruction.addressMode === AM.HL_SPR) {
-    const hflag = (this.readRegister(this.instruction.registerType2) & 0xF) +
-      (this.fetchedData & 0xF) >=
+  if (addressMode === AM.HL_SPR) {
+    const value = this.readRegister(registerType2);
+    console.log(`v: ${value.toString(16).padStart(4, '0')} fd: ${fetchedData.toString(16).padStart(4, '0')}`);
+    const result =(value + (fetchedData << 24 >> 24)) & 0xffff;
+    const c = (value & 0xF) +
+      (fetchedData & 0xF) >=
       0x10;
 
-    const cflag = (this.readRegister(this.instruction.registerType2) & 0xFF) +
-      (this.fetchedData & 0xFF) >=
+    const h = (value & 0xFF) +
+      (fetchedData & 0xFF) >=
       0x100;
 
-    this.setFlags(0, 0, hflag, cflag);
-    this.setRegister(this.instruction.registerType1,
-      this.readRegister(this.instruction.registerType2) + (this.fetchedData << 16 >> 16));
+    this.setFlags(0, 0, h, c);
+    this.setRegister(registerType1, result);
+
+    console.log(`reg: ${this.readRegister(registerType1).toString(16).padStart(4, '0')} f: ${this.registers.f.toString(16).padStart(4, '0')}`);
 
     return;
   }
 
-  this.setRegister(this.instruction.registerType1, this.fetchedData); // 普通寄存器加载
+  this.setRegister(registerType1, fetchedData); // 普通寄存器加载
 }
 
 /*
@@ -506,7 +507,7 @@ function ADD(this: CPU) {
   let val = registerValue + fetchedData;
   // 处理栈指针（RT_SP）的特殊情况
   if (this.instruction.registerType1 === RT.SP) {
-    val = registerValue + (fetchedData << 16 >> 16);
+    val = registerValue + (fetchedData << 24 >> 24);
   }
 
   let z: Flag = (val & 0xFF) === 0;
