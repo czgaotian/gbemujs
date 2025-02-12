@@ -255,13 +255,8 @@ export function LD(this: CPU) {
     const value = this.readRegister(registerType2);
     console.log(`v: ${value.toString(16).padStart(4, '0')} fd: ${fetchedData.toString(16).padStart(4, '0')}`);
     const result =(value + (fetchedData << 24 >> 24)) & 0xffff;
-    const c = (value & 0xF) +
-      (fetchedData & 0xF) >=
-      0x10;
-
-    const h = (value & 0xFF) +
-      (fetchedData & 0xFF) >=
-      0x100;
+    const h = (value & 0xF) +  (fetchedData & 0xF) >= 0x10;
+    const c = (value & 0xFF) + (fetchedData & 0xFF) >= 0x100;
 
     this.setFlags(0, 0, h, c);
     this.setRegister(registerType1, result);
@@ -482,13 +477,16 @@ export function SBC(this: CPU) {
 }
 
 function ADC(this: CPU) {
-  const u = this.fetchedData;
-  const a = this.registers.a;
-  const c = this.registers.flagC;
+  const fetchedData = this.fetchedData;
+  const registerA = this.registers.a;
+  const flagC = this.registers.flagC;
 
-  this.registers.a = (a + u + c) & 0xFF;
+  this.registers.a = (registerA + fetchedData + flagC) & 0xFF;
 
-  this.setFlags(this.registers.a === 0, 0, (a & 0xF) + (u & 0xF) + c > 0xF, a + u + c > 0xFF);
+  const h = (registerA & 0xF) + (fetchedData & 0xF) + flagC > 0xF;
+  const c = registerA + fetchedData + flagC > 0xFF;
+
+  this.setFlags(this.registers.a === 0, 0, h, c);
 }
 
 function ADD(this: CPU) {
