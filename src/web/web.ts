@@ -1,4 +1,6 @@
 import { GameBoy } from "../emu/emu";
+import { PALETTE } from "../constants/ppu";
+import { registerFDisplay } from "../utils/cpu";
 
 export class GameBoyDom extends HTMLElement {
   gameBoy: GameBoy;
@@ -53,8 +55,22 @@ export class GameBoyDom extends HTMLElement {
 
     this.gameBoy.on('serial', (data: number[]) => {
       const serialOutput = shadow.getElementById('serial-output') as HTMLPreElement;
-      const text = data.reduce((acc, curr) => acc + String.fromCharCode(curr), ''); 
+      const text = data.reduce((acc, curr) => acc + String.fromCharCode(curr), '');
       serialOutput.textContent = text;
+    });
+
+    const status = shadow.getElementById('status') as HTMLPreElement;
+    this.gameBoy.on('frame-update', () => {
+      status.textContent = `---- CPU ----
+PC: ${this.gameBoy.cpu.registers.pc.toString(16).padStart(4, '0')} SP: ${this.gameBoy.cpu.registers.sp.toString(16).padStart(4, '0')}
+A: ${this.gameBoy.cpu.registers.a.toString(16).padStart(4, '0')} F: ${registerFDisplay(this.gameBoy.cpu.registers.f)}
+BC: ${this.gameBoy.cpu.registers.bc.toString(16).padStart(4, '0')} DE: ${this.gameBoy.cpu.registers.de.toString(16).padStart(4, '0')}
+HL: ${this.gameBoy.cpu.registers.hl.toString(16).padStart(4, '0')}
+`});
+
+    const canvas = shadow.getElementById('tile-canvas') as HTMLCanvasElement;
+    this.gameBoy.on('frame-update', () => {
+      drawTilemap(canvas, this.gameBoy);
     });
   }
 }
@@ -70,14 +86,47 @@ const domString = `
     <button id="console">console</button>
   </div>
   <div>
-  <div style="display: flex; gap: 10px;">
-    <div style="flex: 1">
-      <div>Serial Output</div>
-      <pre id="serial-output" style="margin: 0; border: 1px solid #000; min-height: 1rem;"></pre>
+  <div style="display: flex; gap: 8px;">
+    <div>
+      <div>Status</div>
+      <pre id="status" style="width: 256px; margin: 0; border: 1px solid #000; min-height: 192px;"></pre>
     </div>
-    <div style="flex: 1">
+    <div>
       <div>Tiles</div>
-      <canvas id="tile-canvas" width="160" height="144" style="border: 1px solid #000;"></canvas>
+      <canvas id="tile-canvas" width="128" height="192" style="border: 1px solid #000;"></canvas>
+    </div>
+    <div>
+      <div>Serial Output</div>
+      <pre id="serial-output" style="width: 256px; margin: 0; border: 1px solid #000; min-height: 192px; overflow: auto;"></pre>
     </div>
   </div>
 `
+
+function drawTilemap(canvas: HTMLCanvasElement, emulator: GameBoy): void {
+  const bitmap = new Uint8ClampedArray(128 * 192 * 4);
+
+  const vram = emulator.vram;
+
+  for (let i = 0; i < 384; i += 1) {
+    let px = (i % 16) * 8;
+    let py = Math.floor(i / 16) * 8;
+    for (let y = 0; y < 8; y += 1) {
+      const tileLine1 = vram[i * 16 + y * 2];
+      const tileLine2 = vram[i * 16 + y * 2 + 1];
+      for (let x = 0; x < 8; x += 1) {
+        const dx = 7 - x;
+        const colorId = ((tileLine1 >> dx) & 1) | (((tileLine2 >> dx) & 1) << 1);
+        const color = PALETTE[colorId];
+        const ax = px + x;
+        const ay = py + y;
+        bitmap[(ay * 128 + ax) * 4] = (color >>> 24) & 0xff;
+        bitmap[(ay * 128 + ax) * 4 + 1] = (color >>> 16) & 0xff;
+        bitmap[(ay * 128 + ax) * 4 + 2] = (color >>> 8) & 0xff;
+        bitmap[(ay * 128 + ax) * 4 + 3] = color & 0xff;
+      }
+    }
+  }
+  const ctx = canvas.getContext('2d');
+  const imgData = new ImageData(bitmap, 128, 192);
+  ctx?.putImageData(imgData, 0, 0);
+}

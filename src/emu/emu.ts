@@ -105,6 +105,7 @@ export class GameBoy {
         this.emit('serial', [...this.serial.outputBuffer]);
       }
     }
+    this.emit('frame-update', this);
   }
 
   public tick(cpuCycle: number) {
