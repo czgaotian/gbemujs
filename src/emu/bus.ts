@@ -59,7 +59,7 @@ export function busRead(this: GameBoy, address: number): number {
   }
   if (address >= 0xFF40 && address <= 0xFF4B) {
     // ppu
-    return 0xff;
+    return this.ppu.read(address) & 0xFF;
   }
   if (address >= 0xFF80 && address <= 0xFFFE) {
     return this.hram[address - 0xFF80] & 0xFF;
@@ -130,6 +130,7 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
   }
   if (address >= 0xFF40 && address <= 0xFF4B) {
     // ppu
+    this.ppu.write(address, value);
     return;
   }
   if (address >= 0xFF80 && address <= 0xFFFE) {

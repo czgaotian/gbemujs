@@ -9,5 +9,5 @@ export const bitGet = (value: number, bit: number): 0 | 1  => {
 };
 
 export const bitTest = (value: number, bit: number): boolean => {
-  return (value & (1 << bit)) !== 0;
+  return !!(value & (1 << bit));
 };

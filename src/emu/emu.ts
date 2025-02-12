@@ -7,6 +7,7 @@ import { Cartridge } from '../cartridge/cartridge';
 import { Timer } from '../timer/timer';
 import { Serial } from '../serial/serial';
 import { INTERRUPT_TYPE as IT } from '../types';
+import { EventBus } from '../event/event';
 
 export class GameBoy {
   public cpu: CPU;
@@ -16,6 +17,7 @@ export class GameBoy {
   public joypad: Joypad;
   public timer: Timer;
   public serial: Serial;
+  public event: EventBus;
 
   public lastTime: number;
   public clockCycles: number = 0;
@@ -36,7 +38,7 @@ export class GameBoy {
     this.ppu = new PPU(this);
     this.apu = new APU();
     this.joypad = new Joypad();
-    this.timer = new Timer();
+    this.timer = new Timer(this);
     this.serial = new Serial(this);
 
     this.lastTime = performance.now();
@@ -45,6 +47,8 @@ export class GameBoy {
     this.intFlags = IT.NONE;
     // 0xFFFF - The interruption enabling flags.
     this.intEnableFlags = 0;
+
+    this.event = new EventBus();
   }
 
   public loadROM(data: Uint8Array): void {
@@ -59,6 +63,7 @@ export class GameBoy {
     this.lastTime = performance.now();
 
     this.cpu.init();
+    this.ppu.init();
     this.timer.init();
     this.serial.init();
 
@@ -97,23 +102,21 @@ export class GameBoy {
       this.cpu.step();
 
       if (this.serial.outputBuffer.length > 0) {
-        const serialOutput = document.getElementById('serial-output') as HTMLPreElement;
-        const text = this.serial.outputBuffer.reduce((acc, curr) => acc + String.fromCharCode(curr), ''); 
-        serialOutput.textContent = text;
+        this.emit('serial', [...this.serial.outputBuffer]);
       }
     }
   }
 
   public tick(cpuCycle: number) {
-    for (let i = 0; i < cpuCycle; i++) {
-      for (let j = 0; j < 4; j++) {
-        this.clockCycles++;
-        this.timer.tick();
-        if (this.clockCycles % 512 === 0) {
-          // Serial is ticked at 8192Hz.
-          this.serial.tick();
-        }
+    const tickCycles = cpuCycle * 4;
+    for (let i = 0; i < tickCycles; i++) {
+      this.clockCycles++;
+      this.timer.tick();
+      if (this.clockCycles % 512 === 0) {
+        // Serial is ticked at 8192Hz.
+        this.serial.tick();
       }
+      this.ppu.tick();
     }
   }
 
@@ -139,4 +142,16 @@ export class GameBoy {
    * @return void
    */
   public busWrite16 = busWrite16.bind(this);
+
+  public on(event: string, callback: (data: any) => void) {
+    this.event.on(event, callback);
+  }
+
+  public off(event: string) {
+    this.event.off(event);
+  }
+
+  public emit(event: string, data: any) {
+    this.event.emit(event, data);
+  }
 }
