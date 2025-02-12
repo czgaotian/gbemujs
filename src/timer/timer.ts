@@ -1,13 +1,12 @@
 import { GameBoy } from "../emu/emu";
 import { bitTest } from "../utils";
+import { INTERRUPT_TYPE as IT } from "../types";
 
 export class Timer {
-  div: number = 0;
-  tima: number = 0;
-  tma: number = 0;
-  tac: number = 0;
+  // div u16, tima u8, tma u8, tac u8
+  private _registers = new DataView(new ArrayBuffer(5));
 
-  constructor() {
+  constructor(public emulator: GameBoy) {
   }
 
   init() {
@@ -19,29 +18,28 @@ export class Timer {
 
   tick() {
     const prevDiv = this.div;
-
     this.div++;
-
     let timaUpdate = false;
 
     if (this.timaEnabled) {
       switch (this.clockSelect) {
-        case 0:
+        case 0: // 4096 Hz
           timaUpdate = !!(prevDiv & (1 << 9)) && (!(this.div & (1 << 9)));
           break;
-        case 1:
+        case 1: // 262144 Hz
           timaUpdate = !!(prevDiv & (1 << 3)) && (!(this.div & (1 << 3)));
           break;
-        case 2:
+        case 2: // 65536 Hz
           timaUpdate = !!(prevDiv & (1 << 5)) && (!(this.div & (1 << 5)));
           break;
-        case 3:
+        case 3: // 16384 Hz
           timaUpdate = !!(prevDiv & (1 << 7)) && (!(this.div & (1 << 7)));
           break;
       }
 
       if (timaUpdate) {
         if (this.tima === 0xFF) {
+          this.emulator.intFlags |= IT.TIMER;
           this.tima = this.tma;
         } else {
           this.tima++;
@@ -86,8 +84,37 @@ export class Timer {
     }
   }
 
-  readDIV() {
-    return (this.div >>> 8) & 0xff;
+  get div() {
+    return this._registers.getUint16(0);
+  }
+
+  set div(value: number) {
+    this._registers.setUint16(0, value);
+  }
+
+
+  get tima() {
+    return this._registers.getUint8(2);
+  }
+
+  set tima(value: number) {
+    this._registers.setUint8(2, value);
+  }
+
+  get tma() {
+    return this._registers.getUint8(3);
+  }
+
+  set tma(value: number) {
+    this._registers.setUint8(3, value);
+  }
+
+  get tac() {
+    return this._registers.getUint8(4);
+  }
+
+  set tac(value: number) {
+    this._registers.setUint8(4, value);
   }
 
   get clockSelect() {
