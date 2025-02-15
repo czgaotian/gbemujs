@@ -93,7 +93,7 @@ const domString = `
     </div>
     <div>
       <div>Tiles</div>
-      <canvas id="tile-canvas" width="128" height="192" style="border: 1px solid #000;"></canvas>
+      <canvas id="tile-canvas" width="256" height="384" style="border: 1px solid #000;"></canvas>
     </div>
     <div>
       <div>Serial Output</div>
@@ -103,13 +103,15 @@ const domString = `
 `
 
 function drawTilemap(canvas: HTMLCanvasElement, emulator: GameBoy): void {
-  const bitmap = new Uint8ClampedArray(128 * 192 * 4);
-
+  const scale = 2;
+  const width = 128 * scale;
+  const height = 192 * scale;
+  const bitMap = new Uint8ClampedArray(width * height * 4);
   const vram = emulator.vram;
 
   for (let i = 0; i < 384; i += 1) {
-    let px = (i % 16) * 8;
-    let py = Math.floor(i / 16) * 8;
+    let px = (i % 16) * 8 * scale;
+    let py = Math.floor(i / 16) * 8 * scale;
 
     for (let y = 0; y < 8; y += 1) {
       const tileLine1 = vram[i * 16 + y * 2];
@@ -118,17 +120,23 @@ function drawTilemap(canvas: HTMLCanvasElement, emulator: GameBoy): void {
         const dx = 7 - x;
         const colorId = ((tileLine1 >> dx) & 1) | (((tileLine2 >> dx) & 1) << 1);
         const color = PALETTE[colorId];
-        const ax = px + x;
-        const ay = py + y;
-        bitmap[(ay * 128 + ax) * 4] = (color >>> 24) & 0xff;
-        bitmap[(ay * 128 + ax) * 4 + 1] = (color >>> 16) & 0xff;
-        bitmap[(ay * 128 + ax) * 4 + 2] = (color >>> 8) & 0xff;
-        bitmap[(ay * 128 + ax) * 4 + 3] = color & 0xff;
+        const ax = px + x * scale;
+        const ay = py + y * scale;
+         
+        for (let dy = 0; dy < scale; dy += 1) {
+          for (let dx = 0; dx < scale; dx += 1) {
+            const index = ((ay + dy) * width + (ax + dx)) * 4;
+            bitMap[index] = (color >>> 24) & 0xff;
+            bitMap[index + 1] = (color >>> 16) & 0xff;
+            bitMap[index + 2] = (color >>> 8) & 0xff;
+            bitMap[index + 3] = color & 0xff;
+          }
+        }
       }
     }
   }
 
   const ctx = canvas.getContext('2d');
-  const imgData = new ImageData(bitmap, 128, 192);
+  const imgData = new ImageData(bitMap, width, height);
   ctx?.putImageData(imgData, 0, 0);
 }
