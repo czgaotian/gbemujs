@@ -27,6 +27,7 @@ export class GameBoy {
 
   public vram: Uint8Array = new Uint8Array(0x2000);
   public wram: Uint8Array = new Uint8Array(0x2000);
+  public oam: Uint8Array = new Uint8Array(0xA0);
   public hram: Uint8Array = new Uint8Array(0x80);
 
   public intFlags: number;
@@ -67,7 +68,9 @@ export class GameBoy {
     this.timer.init();
     this.serial.init();
 
+    this.vram.fill(0);
     this.wram.fill(0);
+    this.oam.fill(0);
     this.hram.fill(0);
 
     this.intFlags = IT.NONE;

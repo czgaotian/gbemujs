@@ -37,9 +37,9 @@ export function busRead(this: GameBoy, address: number): number {
     // echo ram
     return 0xff;
   }
-  if (address <= 0xFE9F) {
+  if (address >= 0xFE00 && address <= 0xFE9F) {
     // Object Attribute Memory
-    return 0xff;
+    return this.oam[address - 0xFE00] & 0xFF;
   }
   if (address <= 0xFEFF) {
     // Reserved - Unusable
@@ -105,8 +105,9 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
     // echo ram
     return;
   }
-  if (address <= 0xFE9F) {
+  if (address >= 0xFE00 && address <= 0xFE9F) {
     // Object Attribute Memory
+    this.oam[address - 0xFE00] = value;
     return;
   }
   if (address <= 0xFEFF) {

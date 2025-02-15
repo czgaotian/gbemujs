@@ -1,8 +1,13 @@
+import { PPU_XRES, PPU_YRES } from '../constants/ppu';
 import { GameBoy } from '../emu/emu';
 import { INTERRUPT_TYPE } from '../types/cpu';
-import { PPU_MODE } from '../types/ppu';
+import { BGWPixel, ObjectPixel, PPU_FETCH_STATE, PPU_MODE } from '../types/ppu';
 import { bitGet, bitSet, bitTest } from '../utils';
 import { tickOamScan, tickDrawing, tickHBlank, tickVBlank } from './statusMachine';
+import { getTile, getData, pushPixels } from './fetcher';
+import { applyPalette } from '../utils/ppu';
+import { pixelOffset } from '../utils/ppu';
+import { OamEntry } from './oam';
 
 export class PPU {
   public emulator: GameBoy;
@@ -21,8 +26,39 @@ export class PPU {
   // 0xff4b wx - Window X position plus 7
   private _registers = new Uint8Array(12);
 
+  // fetcher
+  public bgwQueue: BGWPixel[] = [];
+  fetchWindow = false;
+  windowLine: number = 0;
+  fetchState: PPU_FETCH_STATE = PPU_FETCH_STATE.IDLE;
+  fetchX: number = 0;
+  bgwDataAddrOffset: number = 0;
+  tileXBegin: number = 0;
+  // The fetched background/window data in PPU_FETCH_STATE.DATA0 and PPU_FETCH_STATE.DATA1 step.
+  bgwFetchedData: [number, number] = [0, 0];
+  pushX: number = 0;
+  drawX: number = 0;
+
+  public pixels = new Uint8Array(PPU_XRES * PPU_YRES * 4 * 2);
+  public currentBackBuffer = 0;
+
+  // dma
+  dmaActive: boolean = false;
+  dmaOffset: number = 0;
+  dmaStartDelay: number = 0;
+
   public lineCycles: number = 0;
-  
+
+  // the FIFO queue for sprites
+  objQueue: ObjectPixel[] = [];
+  // the loaded sprites
+  sprites: OamEntry[] = [];
+  // the sprites used in current fetch
+  fetchedSprites: OamEntry[] = [];
+  numFetchedSprites: number = 0;
+  // store the sprite pixels in FETCH_STATE.DATA0 and FETCH_STATE.DATA1
+  spriteFetchedData = new Uint8Array(6);
+
   constructor(emulator: GameBoy) {
     this.emulator = emulator;
   }
@@ -42,10 +78,22 @@ export class PPU {
     this.wx = 0;
 
     this.PPUMode = PPU_MODE.OAM_SCAN;
+
+    this.pixels.fill(0);
+    this.currentBackBuffer = 0;
+
+    this.dmaActive = false;
+    this.dmaOffset = 0;
+    this.dmaStartDelay = 0;
+
     this.lineCycles = 0;
   }
 
   tick() {
+    if (this.emulator.clockCycles % 4 === 0) {
+      this.tickDma();
+    }
+
     if (!this.enabled) return;
 
     this.lineCycles++;
@@ -64,6 +112,18 @@ export class PPU {
         this.tickVBlank();
         break;
     }
+  }
+
+  tickDma() {
+    if (!this.dmaActive) return;
+
+    if (this.dmaStartDelay > 0) {
+      this.dmaStartDelay--;
+      return;
+    }
+    this.emulator.oam[this.dmaOffset] = this.emulator.busRead((this.dma << 8) + this.dmaOffset);
+    this.dmaOffset++;
+    this.dmaActive = this.dmaOffset < 0xA0;
   }
 
   read(address: number) {
@@ -87,6 +147,12 @@ export class PPU {
         return;
       }
       if (address === 0xff44) return;
+      if (address === 0xff46) {
+        this.dmaActive = true;
+        this.dmaOffset = 0;
+        this.dmaStartDelay = 1;
+        return;
+      }
       this._registers[address - 0xff40] = value;
     }
   }
@@ -112,16 +178,16 @@ export class PPU {
   }
 
   set scrollY(value: number) {
-    this._registers[2] = value; 
+    this._registers[2] = value;
   }
 
   get scrollX() {
     return this._registers[3];
-  } 
+  }
 
   set scrollX(value: number) {
     this._registers[3] = value;
-  }   
+  }
 
   get ly() {
     return this._registers[4];
@@ -129,7 +195,7 @@ export class PPU {
 
   set ly(value: number) {
     this._registers[4] = value;
-  } 
+  }
 
   get lyc() {
     return this._registers[5];
@@ -145,7 +211,7 @@ export class PPU {
 
   set dma(value: number) {
     this._registers[6] = value;
-  }   
+  }
 
   get bgp() {
     return this._registers[7];
@@ -191,28 +257,57 @@ export class PPU {
     return bitTest(this.lcdc, 7);
   }
 
-  get lycFlag() {
-    return bitGet(this.lcds, 2);
+  get windowMapArea() {
+    return bitTest(this.lcdc, 6) ? 0x9c00 : 0x9800;
   }
 
-  set lycFlag(value: 0 | 1) {
-    this.lcds = bitSet(this.lcds, 2, !!value);
+  get windowEnabled() {
+    return bitTest(this.lcdc, 5);
   }
 
-  get hblankIntEnabled() {
-    return bitTest(this.lcds, 3);
+  get bgwDataArea() {
+    return bitTest(this.lcdc, 4) ? 0x8000 : 0x8800;
   }
 
-  get vblankIntEnabled() {
-    return bitTest(this.lcds, 4);
+  get bgMapArea() {
+    return bitTest(this.lcdc, 3) ? 0x9c00 : 0x9800;
+  }
+
+  get objHeight() {
+    return bitTest(this.lcdc, 2) ? 16 : 8;
+  }
+
+  get objEnabled() {
+    return bitTest(this.lcdc, 1);
+  }
+
+  get bgWindowEnabled() {
+    return bitTest(this.lcdc, 0);
+  }
+
+
+  get lycIntEnabled() {
+    return bitTest(this.lcds, 6);
   }
 
   get oamIntEnabled() {
     return bitTest(this.lcds, 5);
   }
 
-  get lycIntEnabled() {
-    return bitTest(this.lcds, 6);
+  get vblankIntEnabled() {
+    return bitTest(this.lcds, 4);
+  }
+
+  get hblankIntEnabled() {
+    return bitTest(this.lcds, 3);
+  }
+
+  get lycFlag() {
+    return bitGet(this.lcds, 2);
+  }
+
+  set lycFlag(value: 0 | 1) {
+    this.lcds = bitSet(this.lcds, 2, !!value);
   }
 
   get PPUMode(): PPU_MODE {
@@ -230,6 +325,10 @@ export class PPU {
   tickVBlank = tickVBlank.bind(this);
 
   increaseLy() {
+    // check current line is crossing window
+    if (this.windowVisible && this.ly >= this.wy && this.ly < this.wy + PPU_YRES) {
+      this.windowLine++;
+    }
     this.ly++;
     if (this.ly === this.lyc) {
       this.lycFlag = 1;
@@ -239,5 +338,56 @@ export class PPU {
     } else {
       this.lycFlag = 0;
     }
+  }
+
+  // 166 is hardware bug 
+  // https://gbdev.io/pandocs/Scrolling.html#ff4aff4b--wy-wx-window-y-position-x-position-plus-7
+  get windowVisible() {
+    return this.windowEnabled && this.wx <= 166 && this.wy < PPU_YRES;
+  }
+
+  // + 7 is hardware bug 
+  // https://gbdev.io/pandocs/Scrolling.html#ff4aff4b--wy-wx-window-y-position-x-position-plus-7
+  isPixelWindow(screenX: number, screenY: number) {
+    return this.windowVisible && (screenX + 7 >= this.wx) && (screenY >= this.wy);
+  }
+
+  fetcherGetTile = getTile.bind(this);
+  fetcherGetData = getData.bind(this);
+  fetcherPushPixels = pushPixels.bind(this);
+
+  lcdDrawPixel(this: PPU) {
+    if (this.drawX >= PPU_XRES) return;
+
+    const bgwPixel = this.bgwQueue.shift() as BGWPixel;
+    const objPixel = this.objQueue.shift() as ObjectPixel;
+
+    const bgColor = applyPalette(bgwPixel.color, bgwPixel.palette);
+    const drawObj = objPixel.color && (!objPixel.bgPriority || bgColor === 0);
+    const objColor = applyPalette(objPixel.color, objPixel.palette & 0xfc);
+
+    const color = drawObj ? objColor : bgColor;
+
+    switch (color) {
+      case 0: this.setPixel(this.drawX, this.ly, 153, 161, 120, 255); break;
+      case 1: this.setPixel(this.drawX, this.ly, 87, 93, 67, 255); break;
+      case 2: this.setPixel(this.drawX, this.ly, 42, 46, 32, 255); break;
+      case 3: this.setPixel(this.drawX, this.ly, 10, 10, 2, 255); break;
+    }
+
+    this.drawX++;
+  }
+
+  setPixel(this: PPU, x: number, y: number, r: number, g: number, b: number, a: number) {
+    if (x < 0 || x >= PPU_XRES || y < 0 || y >= PPU_YRES) {
+      throw new Error(`Invalid pixel coordinates: x=${x}, y=${y}`);
+    };
+
+    const offset = pixelOffset(this.currentBackBuffer * PPU_XRES * PPU_YRES * 4, x, y, 4, PPU_XRES * 4);
+
+    this.pixels[offset] = r;
+    this.pixels[offset + 1] = g;
+    this.pixels[offset + 2] = b;
+    this.pixels[offset + 3] = a;
   }
 }

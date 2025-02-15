@@ -110,6 +110,7 @@ function drawTilemap(canvas: HTMLCanvasElement, emulator: GameBoy): void {
   for (let i = 0; i < 384; i += 1) {
     let px = (i % 16) * 8;
     let py = Math.floor(i / 16) * 8;
+
     for (let y = 0; y < 8; y += 1) {
       const tileLine1 = vram[i * 16 + y * 2];
       const tileLine2 = vram[i * 16 + y * 2 + 1];
@@ -126,6 +127,7 @@ function drawTilemap(canvas: HTMLCanvasElement, emulator: GameBoy): void {
       }
     }
   }
+
   const ctx = canvas.getContext('2d');
   const imgData = new ImageData(bitmap, 128, 192);
   ctx?.putImageData(imgData, 0, 0);
