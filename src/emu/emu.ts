@@ -8,6 +8,7 @@ import { Timer } from '../timer/timer';
 import { Serial } from '../serial/serial';
 import { INTERRUPT_TYPE as IT } from '../types';
 import { EventBus } from '../event/event';
+import { PPU_XRES, PPU_YRES } from '../constants/ppu';
 
 export class GameBoy {
   public cpu: CPU;
@@ -108,7 +109,13 @@ export class GameBoy {
         this.emit('serial', [...this.serial.outputBuffer]);
       }
     }
-    this.emit('frame-update', this);
+    this.updateFrame();
+  }
+
+  updateFrame() {
+    const offset = ((this.ppu.currentBackBuffer + 1) % 2) * PPU_XRES * PPU_YRES * 4;
+    const frame = this.ppu.pixels.subarray(offset, offset + PPU_XRES * PPU_YRES * 4);
+    this.emit('frame-update', frame);
   }
 
   public tick(cpuCycle: number) {

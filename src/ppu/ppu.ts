@@ -39,7 +39,7 @@ export class PPU {
   pushX: number = 0;
   drawX: number = 0;
 
-  public pixels = new Uint8Array(PPU_XRES * PPU_YRES * 4 * 2);
+  public pixels = new Uint8ClampedArray(PPU_XRES * PPU_YRES * 4 * 2);
   public currentBackBuffer = 0;
 
   // dma
@@ -357,25 +357,27 @@ export class PPU {
   fetcherPushPixels = pushPixels.bind(this);
 
   lcdDrawPixel(this: PPU) {
-    if (this.drawX >= PPU_XRES) return;
+    if (this.bgwQueue.length >= 8) {
+      if (this.drawX >= PPU_XRES) return;
 
-    const bgwPixel = this.bgwQueue.shift() as BGWPixel;
-    const objPixel = this.objQueue.shift() as ObjectPixel;
+      const bgwPixel = this.bgwQueue.shift() as BGWPixel;
+      const objPixel = this.objQueue.shift() as ObjectPixel;
 
-    const bgColor = applyPalette(bgwPixel.color, bgwPixel.palette);
-    const drawObj = objPixel.color && (!objPixel.bgPriority || bgColor === 0);
-    const objColor = applyPalette(objPixel.color, objPixel.palette & 0xfc);
+      const bgColor = applyPalette(bgwPixel.color, bgwPixel.palette);
+      const drawObj = objPixel.color && (!objPixel.bgPriority || bgColor === 0);
+      const objColor = applyPalette(objPixel.color, objPixel.palette & 0xfc);
 
-    const color = drawObj ? objColor : bgColor;
+      const color = drawObj ? objColor : bgColor;
 
-    switch (color) {
-      case 0: this.setPixel(this.drawX, this.ly, 153, 161, 120, 255); break;
-      case 1: this.setPixel(this.drawX, this.ly, 87, 93, 67, 255); break;
-      case 2: this.setPixel(this.drawX, this.ly, 42, 46, 32, 255); break;
-      case 3: this.setPixel(this.drawX, this.ly, 10, 10, 2, 255); break;
+      switch (color) {
+        case 0: this.setPixel(this.drawX, this.ly, 153, 161, 120, 255); break;
+        case 1: this.setPixel(this.drawX, this.ly, 87, 93, 67, 255); break;
+        case 2: this.setPixel(this.drawX, this.ly, 42, 46, 32, 255); break;
+        case 3: this.setPixel(this.drawX, this.ly, 10, 10, 2, 255); break;
+      }
+
+      this.drawX++;
     }
-
-    this.drawX++;
   }
 
   setPixel(this: PPU, x: number, y: number, r: number, g: number, b: number, a: number) {

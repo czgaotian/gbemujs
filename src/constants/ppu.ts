@@ -4,8 +4,8 @@ export const PPU_YRES = 144;
 export const PPU_XRES = 160;
 
 export const PALETTE = [
-  0xffffffff,
-  0xaaaaaaff,
-  0x555555ff,
-  0x000000ff,
+  0x99a178ff,
+  0x575d43ff,
+  0x2a2e20ff,
+  0x0a0a02ff,
 ];

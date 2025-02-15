@@ -1,6 +1,7 @@
 import { GameBoy } from "../emu/emu";
-import { PALETTE } from "../constants/ppu";
+import { PALETTE, PPU_XRES, PPU_YRES } from "../constants/ppu";
 import { registerFDisplay } from "../utils/cpu";
+import { cssString, domString } from "./template";
 
 export class GameBoyDom extends HTMLElement {
   gameBoy: GameBoy;
@@ -15,7 +16,11 @@ export class GameBoyDom extends HTMLElement {
 
     const template = document.createElement('template');
     template.innerHTML = domString;
+    const css = document.createElement('style');
+    css.textContent = cssString;
+
     shadow.appendChild(template.content);
+    shadow.appendChild(css);
 
     const fileInput = shadow.getElementById('rom-file') as HTMLInputElement;
     fileInput.addEventListener('change', (e: Event) => {
@@ -59,59 +64,35 @@ export class GameBoyDom extends HTMLElement {
       serialOutput.textContent = text;
     });
 
-    const status = shadow.getElementById('status') as HTMLPreElement;
-    this.gameBoy.on('frame-update', () => {
-      status.textContent = `---- CPU ----
-PC: ${this.gameBoy.cpu.registers.pc.toString(16).padStart(4, '0')} SP: ${this.gameBoy.cpu.registers.sp.toString(16).padStart(4, '0')}
-A: ${this.gameBoy.cpu.registers.a.toString(16).padStart(4, '0')} F: ${registerFDisplay(this.gameBoy.cpu.registers.f)}
-BC: ${this.gameBoy.cpu.registers.bc.toString(16).padStart(4, '0')} DE: ${this.gameBoy.cpu.registers.de.toString(16).padStart(4, '0')}
-HL: ${this.gameBoy.cpu.registers.hl.toString(16).padStart(4, '0')}
-`});
-
+    const screen = shadow.getElementById('screen') as HTMLCanvasElement;
     const canvas = shadow.getElementById('tile-canvas') as HTMLCanvasElement;
-    this.gameBoy.on('frame-update', () => {
-      drawTilemap(canvas, this.gameBoy);
+    const status = shadow.getElementById('status') as HTMLPreElement;
+
+    this.gameBoy.on('frame-update', (frame: Uint8ClampedArray) => {
+      emuInfoRender(status, this.gameBoy);
+      tileRender(canvas, this.gameBoy);
+      screenRender(screen, frame);
     });
   }
 }
 
-const domString = `
-  <div style="display: flex; margin-bottom: 10px;">
-    <canvas id="screen" width="320" height="288" style="border: 1px solid #000;"></canvas>
-  </div>
-  <div style="margin-bottom: 10px;">
-    game rom: <input type="file" id="rom-file" title="Select ROM" />
-    <button id="pause">Pause</button>
-    <button id="step">Next Step</button>
-    <button id="console">console</button>
-  </div>
-  <div>
-  <div style="display: flex; gap: 8px;">
-    <div>
-      <div>Status</div>
-      <pre id="status" style="width: 256px; margin: 0; border: 1px solid #000; min-height: 192px;"></pre>
-    </div>
-    <div>
-      <div>Tiles</div>
-      <canvas id="tile-canvas" width="256" height="384" style="border: 1px solid #000;"></canvas>
-    </div>
-    <div>
-      <div>Serial Output</div>
-      <pre id="serial-output" style="width: 256px; margin: 0; border: 1px solid #000; min-height: 192px; overflow: auto;"></pre>
-    </div>
-  </div>
-`
+function emuInfoRender(dom: HTMLPreElement, gameBoy: GameBoy) {
+  dom.textContent = `---- CPU ----
+PC: ${gameBoy.cpu.registers.pc.toString(16).padStart(4, '0')} SP: ${gameBoy.cpu.registers.sp.toString(16).padStart(4, '0')}
+A: ${gameBoy.cpu.registers.a.toString(16).padStart(4, '0')} F: ${registerFDisplay(gameBoy.cpu.registers.f)}
+BC: ${gameBoy.cpu.registers.bc.toString(16).padStart(4, '0')} DE: ${gameBoy.cpu.registers.de.toString(16).padStart(4, '0')}
+HL: ${gameBoy.cpu.registers.hl.toString(16).padStart(4, '0')}
+`}
 
-function drawTilemap(canvas: HTMLCanvasElement, emulator: GameBoy): void {
-  const scale = 2;
-  const width = 128 * scale;
-  const height = 192 * scale;
+function tileRender(canvas: HTMLCanvasElement, emulator: GameBoy): void {
+  const width = 128;
+  const height = 192;
   const bitMap = new Uint8ClampedArray(width * height * 4);
   const vram = emulator.vram;
 
   for (let i = 0; i < 384; i += 1) {
-    let px = (i % 16) * 8 * scale;
-    let py = Math.floor(i / 16) * 8 * scale;
+    let px = (i % 16) * 8;
+    let py = Math.floor(i / 16) * 8;
 
     for (let y = 0; y < 8; y += 1) {
       const tileLine1 = vram[i * 16 + y * 2];
@@ -120,23 +101,25 @@ function drawTilemap(canvas: HTMLCanvasElement, emulator: GameBoy): void {
         const dx = 7 - x;
         const colorId = ((tileLine1 >> dx) & 1) | (((tileLine2 >> dx) & 1) << 1);
         const color = PALETTE[colorId];
-        const ax = px + x * scale;
-        const ay = py + y * scale;
+        const ax = px + x;
+        const ay = py + y;
          
-        for (let dy = 0; dy < scale; dy += 1) {
-          for (let dx = 0; dx < scale; dx += 1) {
-            const index = ((ay + dy) * width + (ax + dx)) * 4;
-            bitMap[index] = (color >>> 24) & 0xff;
-            bitMap[index + 1] = (color >>> 16) & 0xff;
-            bitMap[index + 2] = (color >>> 8) & 0xff;
-            bitMap[index + 3] = color & 0xff;
-          }
-        }
+        const index = (ay * width + ax) * 4;
+        bitMap[index] = (color >>> 24) & 0xff;
+        bitMap[index + 1] = (color >>> 16) & 0xff;
+        bitMap[index + 2] = (color >>> 8) & 0xff;
+        bitMap[index + 3] = color & 0xff;
       }
     }
   }
-
+  
   const ctx = canvas.getContext('2d');
   const imgData = new ImageData(bitMap, width, height);
+  ctx?.putImageData(imgData, 0, 0);
+}
+
+function screenRender(canvas: HTMLCanvasElement, frame: Uint8ClampedArray): void {
+  const ctx = canvas.getContext('2d');
+  const imgData = new ImageData(frame, PPU_XRES, PPU_YRES);
   ctx?.putImageData(imgData, 0, 0);
 }

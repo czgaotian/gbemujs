@@ -70,13 +70,15 @@ export function tickDrawing(this: PPU) {
   }
   if (this.drawX >= PPU_XRES) {
     // 289 cycles for drawing, add 80 cycles for oam
-    if (this.lineCycles >= 252 && this.lineCycles <= 369) {
+    if (this.lineCycles < 252 || this.lineCycles > 369) {
       throw new Error(`Drawing lineCycles: ${this.lineCycles}`);
     }
     this.PPUMode = PPU_MODE.HBLANK;
     if (this.hblankIntEnabled) {
       this.emulator.intFlags |= INTERRUPT_TYPE.LCD_STAT;
     }
+    this.bgwQueue.length = 0;
+    this.objQueue.length = 0;
   }
   this.lcdDrawPixel();
 }
