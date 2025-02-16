@@ -8,7 +8,7 @@ export function tickOamScan(this: PPU) {
   if (this.lineCycles >= 80) {
     this.PPUMode = PPU_MODE.DRAWING;
     this.fetchWindow = false;
-    this.fetchState = PPU_FETCH_STATE.IDLE;
+    this.fetchState = PPU_FETCH_STATE.TILE;
     this.fetchX = 0;
     this.pushX = 0;
     this.drawX = 0;
@@ -34,7 +34,7 @@ export function tickOamScan(this: PPU) {
         this.emulator.oam[i + 3]
       );
 
-      if (entry.y <= this.ly + 16 && entry.y + spriteHeight > this.ly + 16) {
+      if ((entry.y <= this.ly + 16 )&&( entry.y + spriteHeight > this.ly + 16)) {
         const index = this.sprites.findIndex(s => s.x > entry.x);
         if (index === -1) {
           this.sprites.push(entry);

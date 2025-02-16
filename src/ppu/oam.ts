@@ -9,7 +9,9 @@ export class OamEntry {
   constructor(y: number, x: number, tile: number, flags: number) {
     this.y = y;
     this.x = x;
+    // the tile index in vram
     this.tile = tile;
+    // attribute flag
     this.flags = flags;
   }
 

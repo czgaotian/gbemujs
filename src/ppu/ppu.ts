@@ -139,7 +139,9 @@ export class PPU {
       if (address === 0xff40 && this.enabled && !bitTest(value, 7)) {
         // Reset mode to HBLANK
         this.lcds &= 0x7c;
+        // reset ly
         this.ly = 0;
+        this.windowLine = 0;
         this.lineCycles = 0;
       }
       if (address === 0xff41) {

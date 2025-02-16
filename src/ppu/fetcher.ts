@@ -55,6 +55,7 @@ function getWindowTile(ppu: PPU) {
   const addr = ppu.windowMapArea + Math.floor(windowX / 8) + (Math.floor(windowY / 8) * 32);
 
   let tileIndex = ppu.emulator.busRead(addr);
+
   if (ppu.bgwDataArea === 0x8800) {
     tileIndex = tileIndex + 128;
   } 
@@ -81,6 +82,47 @@ function getBackgroundTile(ppu: PPU) {
   // every tile is 16 bytes, and each line is 2 bytes
   ppu.bgwDataAddrOffset = tileIndex * 16 + (mapY % 8) * 2;
   ppu.tileXBegin = Math.floor((ppu.fetchX + ppu.scrollX) / 8) * 8 - ppu.scrollX;
+}
+
+function getSpriteTile(ppu: PPU) {
+  // TODO maybe remove this property
+  ppu.numFetchedSprites = 0;
+
+  for (let i = 0; i < ppu.sprites.length; i++) {
+    const sprite = ppu.sprites[i];
+    const spriteX = sprite.x - 8;
+
+    // if first or last pixel of the sprite is in the tile
+    if (((spriteX >= ppu.tileXBegin) && (spriteX < ppu.tileXBegin + 8)) ||
+      ((spriteX + 7 > ppu.tileXBegin) && (spriteX + 7 < ppu.tileXBegin + 8))) {
+        ppu.fetchedSprites[ppu.numFetchedSprites] = sprite;
+        ppu.numFetchedSprites += 1;
+    }
+
+    if (ppu.numFetchedSprites >= 3) {
+      return;
+    }
+  }
+}
+
+function getSpriteData(ppu: PPU, dataIndex: number) {
+  const spriteHeight = ppu.objHeight;
+
+  ppu.fetchedSprites.forEach((sprite, index) => {
+    let ty = ppu.ly + 16 - sprite.y;
+
+    if (sprite.yFlip) {
+      ty = spriteHeight - ty - 1;
+    }
+
+    let tile = sprite.tile;
+
+    if (spriteHeight === 16) {
+      tile &= 0xFE;
+    }
+
+    ppu.spriteFetchedData[index * 2 + dataIndex] = ppu.emulator.busRead(0x8000 + (tile * 16) + ty * 2 + dataIndex);
+  })
 }
 
 function pushBgwPixels(ppu: PPU) {
@@ -153,45 +195,4 @@ function pushSpritePixels(ppu: PPU, pushBegin: number, pushEnd: number) {
     
     ppu.objQueue.push(pixel);
   }
-}
-
-function getSpriteTile(ppu: PPU) {
-  // TODO maybe remove this property
-  ppu.numFetchedSprites = 0;
-
-  for (let i = 0; i < ppu.sprites.length; i++) {
-    const sprite = ppu.sprites[i];
-    const spriteX = sprite.x - 8;
-
-    // if first or last pixel of the sprite is in the tile
-    if (((spriteX >= ppu.tileXBegin) && (spriteX < ppu.tileXBegin + 8)) ||
-      ((spriteX + 7 > ppu.tileXBegin) && (spriteX + 7 < ppu.tileXBegin + 8))) {
-        ppu.fetchedSprites[ppu.numFetchedSprites] = sprite;
-        ppu.numFetchedSprites += 1;
-    }
-
-    if (ppu.numFetchedSprites >= 3) {
-      return;
-    }
-  }
-}
-
-function getSpriteData(ppu: PPU, dataIndex: number) {
-  const spriteHeight = ppu.objHeight;
-
-  ppu.fetchedSprites.forEach((sprite, index) => {
-    let ty = ppu.ly + 16 - sprite.y;
-
-    if (sprite.yFlip) {
-      ty = spriteHeight - ty - 1;
-    }
-
-    let tile = sprite.tile;
-
-    if (spriteHeight === 16) {
-      tile &= 0xFE;
-    }
-
-    ppu.spriteFetchedData[index * 2 + dataIndex] = ppu.emulator.busRead(0x8000 + (tile * 16) + ty * 2 + dataIndex);
-  })
 }

@@ -15,7 +15,7 @@ export const domString = `
       <pre id="status" style="width: 256px; margin: 0; border: 1px solid #000; min-height: 192px;"></pre>
     </div>
     <div>
-      <div>Tiles</div>
+      <div>Tiles in VRAM</div>
       <canvas id="tile-canvas" width="128" height="192" style="border: 1px solid #000;"></canvas>
     </div>
     <div>
