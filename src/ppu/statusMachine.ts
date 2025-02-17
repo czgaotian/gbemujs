@@ -12,13 +12,12 @@ export function tickOamScan(this: PPU) {
     this.fetchX = 0;
     this.pushX = 0;
     this.drawX = 0;
-    this.bgwQueue.length = 0;
   }
 
   // get all sprites in one cycle
   if (this.lineCycles === 1) {
     this.sprites.length = 0;
-    
+
     const spriteHeight = this.objHeight;
 
     for (let i = 0; i < 40; i++) {
@@ -26,15 +25,17 @@ export function tickOamScan(this: PPU) {
         break;
       }
 
+      const oam = this.emulator.oam;
+
       // load sprite data from oam
       const entry = new OamEntry(
-        this.emulator.oam[i],
-        this.emulator.oam[i + 1],
-        this.emulator.oam[i + 2],
-        this.emulator.oam[i + 3]
+        oam[4 * i],
+        oam[4 * i + 1],
+        oam[4 * i + 2],
+        oam[4 * i + 3]
       );
 
-      if ((entry.y <= this.ly + 16 )&&( entry.y + spriteHeight > this.ly + 16)) {
+      if ((entry.y <= this.ly + 16) && (entry.y + spriteHeight > this.ly + 16)) {
         const index = this.sprites.findIndex(s => s.x > entry.x);
         if (index === -1) {
           this.sprites.push(entry);
@@ -68,6 +69,8 @@ export function tickDrawing(this: PPU) {
         throw new Error(`Invalid fetch state: ${this.fetchState}`);
     }
   }
+  // console.log('drawX', this.drawX);
+
   if (this.drawX >= PPU_XRES) {
     // 289 cycles for drawing, add 80 cycles for oam
     if (this.lineCycles < 252 || this.lineCycles > 369) {
