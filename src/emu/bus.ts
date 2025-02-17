@@ -22,7 +22,7 @@ export function busRead(this: GameBoy, address: number): number {
   if (address <= 0x7FFF) {
     return this.cartridge.read(address) & 0xFF;
   }
-  if (address >= 0x8000 && address <= 0x97FF) {
+  if (address >= 0x8000 && address <= 0x9FFF) {
     return this.vram[address - 0x8000] & 0xFF;
   }
   if (address <= 0xBFFF) {
@@ -87,7 +87,7 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
   if (address <= 0x7FFF) {
     return;
   }
-  if (address >= 0x8000 && address <= 0x97FF) {
+  if (address >= 0x8000 && address <= 0x9FFF) {
     this.vram[address - 0x8000] = value;
     return;
   }
