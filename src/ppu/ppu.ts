@@ -6,7 +6,6 @@ import { bitGet, bitSet, bitTest } from '../utils';
 import { tickOamScan, tickDrawing, tickHBlank, tickVBlank } from './statusMachine';
 import { getTile, getData, pushPixels } from './fetcher';
 import { applyPalette } from '../utils/ppu';
-import { pixelOffset } from '../utils/ppu';
 import { OamEntry } from './oam';
 
 export class PPU {
@@ -69,7 +68,7 @@ export class PPU {
     this.scrollY = 0;
     this.scrollX = 0;
     this.ly = 0;
-    this.lyc = 0;
+    this.lyCompare = 0;
     this.dma = 0;
     this.bgp = 0xfc;
     this.obp0 = 0xff;
@@ -79,14 +78,14 @@ export class PPU {
 
     this.PPUMode = PPU_MODE.OAM_SCAN;
 
-    this.pixels.fill(0);
-    this.currentBackBuffer = 0;
-
     this.dmaActive = false;
     this.dmaOffset = 0;
     this.dmaStartDelay = 0;
 
     this.lineCycles = 0;
+
+    this.pixels.fill(0);
+    this.currentBackBuffer = 0;
   }
 
   tick() {
@@ -117,11 +116,11 @@ export class PPU {
   tickDma() {
     if (!this.dmaActive) return;
 
-    if (this.dmaStartDelay > 0) {
+    if (this.dmaStartDelay) {
       this.dmaStartDelay--;
       return;
     }
-    this.emulator.oam[this.dmaOffset] = this.emulator.busRead((this.dma << 8) + this.dmaOffset);
+    this.emulator.oam[this.dmaOffset] = this.emulator.busRead((this.dma << 8) & 0xFF00 + this.dmaOffset);
     this.dmaOffset++;
     this.dmaActive = this.dmaOffset < 0xA0;
   }
@@ -199,11 +198,11 @@ export class PPU {
     this._registers[4] = value;
   }
 
-  get lyc() {
+  get lyCompare() {
     return this._registers[5];
   }
 
-  set lyc(value: number) {
+  set lyCompare(value: number) {
     this._registers[5] = value;
   }
 
@@ -332,7 +331,7 @@ export class PPU {
       this.windowLine++;
     }
     this.ly++;
-    if (this.ly === this.lyc) {
+    if (this.ly === this.lyCompare) {
       this.lycFlag = 1;
       if (this.lycIntEnabled) {
         this.emulator.intFlags |= INTERRUPT_TYPE.LCD_STAT;
@@ -387,7 +386,7 @@ export class PPU {
       throw new Error(`Invalid pixel coordinates: x=${x}, y=${y}`);
     };
 
-    const offset = pixelOffset(this.currentBackBuffer * PPU_XRES * PPU_YRES * 4, x, y, 4, PPU_XRES * 4);
+    const offset = (this.currentBackBuffer * PPU_XRES * PPU_YRES * 4) + (y * PPU_XRES * 4) + (x * 4);
 
     this.pixels[offset] = r;
     this.pixels[offset + 1] = g;

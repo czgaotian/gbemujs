@@ -8,7 +8,3 @@ export const applyPalette = (colorIndex: number, palette: number) => {
   }
   return color;
 }
-
-export const pixelOffset = (base: number, x: number, y: number, bytes_per_pixel: number, row_pitch: number) => {
-  return base + y * row_pitch + x * bytes_per_pixel;
-}
