@@ -49,7 +49,7 @@ export function instructionDisplay(cpu: CPU) {
     case AM.R_A16:
       return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(
         inst.registerType1
-      )},$${cpu.fetchedData.toString(16).padStart(4, '0')}`;
+      )},$${cpu.fetchedData.toString(16).padStart(4, '0').toUpperCase()}`;
 
     case AM.R:
       return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(
@@ -80,7 +80,10 @@ export function instructionDisplay(cpu: CPU) {
     case AM.R_A8:
       return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(
         inst.registerType1
-      )},$${(cpu.fetchedData & 0xff).toString(16).padStart(2, '0')}`;
+      )},$${(cpu.fetchedData & 0xff)
+        .toString(16)
+        .padStart(2, '0')
+        .toUpperCase()}`;
 
     case AM.R_HLI:
       return `${getInstructionTypeName(inst.type)} ${getRegisterTypeName(
@@ -95,42 +98,56 @@ export function instructionDisplay(cpu: CPU) {
     case AM.HLI_R:
       return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(
         inst.registerType1
-      )}),${getRegisterTypeName(inst.registerType2)}`;
+      )}+),${getRegisterTypeName(inst.registerType2)}`;
 
     case AM.HLD_R:
       return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(
         inst.registerType1
-      )}),${getRegisterTypeName(inst.registerType2)}`;
+      )}-),${getRegisterTypeName(inst.registerType2)}`;
 
     case AM.A8_R:
-      return `${getInstructionTypeName(inst.type)} $${(cpu.memoryDestination & 0xff)
+      return `${getInstructionTypeName(inst.type)} $${(
+        cpu.memoryDestination & 0xff
+      )
         .toString(16)
-        .padStart(2, '0')},${getRegisterTypeName(inst.registerType2)}`;
+        .padStart(2, '0')
+        .toUpperCase()},${getRegisterTypeName(
+        inst.registerType2
+      ).toUpperCase()}`;
 
     case AM.HL_SPR:
       return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(
         inst.registerType1
-      )}),SP+${(cpu.fetchedData & 0xff).toString(16).padStart(2, '0')}`;
+      )}),SP+${(cpu.fetchedData & 0xff)
+        .toString(16)
+        .padStart(2, '0')
+        .toUpperCase()}`;
 
     case AM.D8:
       return `${getInstructionTypeName(inst.type)} $${(cpu.fetchedData & 0xff)
         .toString(16)
-        .padStart(2, '0')}`;
+        .padStart(2, '0')
+        .toUpperCase()}`;
 
     case AM.D16:
       return `${getInstructionTypeName(inst.type)} $${cpu.fetchedData
         .toString(16)
-        .padStart(4, '0')}`;
+        .padStart(4, '0')
+        .toUpperCase()}`;
 
     case AM.MR_D8:
       return `${getInstructionTypeName(inst.type)} (${getRegisterTypeName(
         inst.registerType1
-      )}),$${(cpu.fetchedData & 0xff).toString(16).padStart(2, '0')}`;
+      )}),$${(cpu.fetchedData & 0xff)
+        .toString(16)
+        .padStart(2, '0')
+        .toUpperCase()}`;
 
     case AM.A16_R:
       return `${getInstructionTypeName(inst.type)} ($${cpu.fetchedData
         .toString(16)
-        .padStart(4, '0')}),${getRegisterTypeName(inst.registerType2)}`;
+        .padStart(4, '0')
+        .toUpperCase()}),${getRegisterTypeName(inst.registerType2)}`;
 
     default:
       return `INVALID AM: ${getAddressModeName(inst.addressMode)}`;
@@ -144,17 +161,45 @@ export function registerFDisplay(f: number) {
 }
 
 export const cpuLog = (pc: number, cpu: CPU) => {
-  return `${cpu.emulator.clockCycles.toString(16)} - ${pc
+  return `${cpu.emulator.clockCycles
     .toString(16)
-    .padStart(2, '0')} : ${instructionDisplay(cpu)} (${cpu.opcode
+    .padStart(8, '0')
+    .toUpperCase()} - ${pc
     .toString(16)
-    .padStart(2, '0')} ${cpu.emulator
+    .padStart(4, '0')
+    .toUpperCase()}: ${instructionDisplay(cpu).padEnd(12, ' ')} (${cpu.opcode
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} ${cpu.emulator
     .busRead(pc + 1)
     .toString(16)
-    .padStart(2, '0')} ${cpu.emulator
+    .padStart(2, '0')
+    .toUpperCase()} ${cpu.emulator
     .busRead(pc + 2)
     .toString(16)
-    .padStart(2, '0')}) A: ${new Number(cpu.registers.a).toString(16).padStart(2, '0')} F: ${registerFDisplay(
-    cpu.registers.f
-  )} BC: ${new Number(cpu.registers.b).toString(16).padStart(2, '0')}${new Number(cpu.registers.c).toString(16).padStart(2, '0')} DE: ${new Number(cpu.registers.d).toString(16).padStart(2, '0')}${new Number(cpu.registers.e).toString(16).padStart(2, '0')} HL: ${new Number(cpu.registers.h).toString(16).padStart(2, '0')}${new Number(cpu.registers.l).toString(16).padStart(2, '0')}`;
+    .padStart(2, '0')
+    .toUpperCase()}) A: ${new Number(cpu.registers.a)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} F: ${registerFDisplay(cpu.registers.f)} BC: ${new Number(
+    cpu.registers.b
+  )
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()}${new Number(cpu.registers.c)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} DE: ${new Number(cpu.registers.d)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()}${new Number(cpu.registers.e)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} HL: ${new Number(cpu.registers.h)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()}${new Number(cpu.registers.l)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()}`;
 };
