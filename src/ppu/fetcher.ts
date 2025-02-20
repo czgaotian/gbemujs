@@ -1,9 +1,15 @@
-import { ObjectPixel, PPU_FETCH_STATE } from "../types/ppu";
-import { bitGet } from "../utils";
-import { PPU } from "./ppu";
+import { ObjectPixel, PPU_FETCH_STATE } from '../types/ppu';
+import { bitGet } from '../utils';
+import { PPU } from './ppu';
+
+let count = 0;
 
 export function getTile(this: PPU) {
   if (this.bgWindowEnabled) {
+    count++;
+    if (count === 3170) {
+      // throw new Error('test');
+    }
     if (this.fetchWindow) {
       getWindowTile(this);
     } else {
@@ -24,7 +30,10 @@ export function getTile(this: PPU) {
 
 export function getData(this: PPU, dataIndex: number) {
   if (this.bgWindowEnabled) {
-    this.bgwFetchedData[dataIndex] = this.emulator.busRead(this.bgwDataArea + this.bgwDataAddrOffset + dataIndex);
+    // console.log('address', this.bgwDataArea.toString(16).padStart(4, '0'), (this.bgwDataArea + this.bgwDataAddrOffset + dataIndex).toString(16).padStart(4, '0'));
+    this.bgwFetchedData[dataIndex] = this.emulator.busRead(
+      this.bgwDataArea + this.bgwDataAddrOffset + dataIndex
+    );
   }
   if (this.objEnabled) {
     getSpriteData(this, dataIndex);
@@ -35,7 +44,7 @@ export function getData(this: PPU, dataIndex: number) {
 
 export function pushPixels(this: PPU) {
   let pushed = false;
-  
+
   if (this.bgwQueue.length < 8) {
     const pushBegin = this.pushX;
     pushBgwPixels(this);
@@ -47,45 +56,70 @@ export function pushPixels(this: PPU) {
   if (pushed) this.fetchState = PPU_FETCH_STATE.TILE;
 }
 
-
 function getWindowTile(ppu: PPU) {
   const windowX = ppu.fetchX + 7 - ppu.wx;
   const windowY = ppu.windowLine;
 
-  const addr = ppu.windowMapArea + Math.floor(windowX / 8) + (Math.floor(windowY / 8) * 32);
+  // console.log('window', 'x:', windowX, 'y:', windowY);
+
+  const addr =
+    ppu.windowMapArea + Math.floor(windowX / 8) + Math.floor(windowY / 8) * 32;
 
   let tileIndex = ppu.emulator.busRead(addr);
 
+  // console.log('win tile index', tileIndex.toString(16).padStart(4, '0'));
+
   if (ppu.bgwDataArea === 0x8800) {
     tileIndex = tileIndex + 128;
-  } 
+  }
 
   ppu.bgwDataAddrOffset = tileIndex * 16 + (windowY % 8) * 2;
-  // wx is Window X position plus 7, so the start x is fetchX - (wx - 7)
-  ppu.tileXBegin = Math.floor((ppu.fetchX - (ppu.wx - 7)) / 8) * 8 - (ppu.wx - 7);
+  ppu.tileXBegin = Math.floor((ppu.fetchX - (ppu.wx - 7)) / 8) * 8 + ppu.wx - 7;
 }
 
 function getBackgroundTile(ppu: PPU) {
-  // the position of next pixel to fetch 
+  // console.log(
+  //   'scroll',
+  //   'x:',
+  //   ppu.scrollX,
+  //   'y:',
+  //   ppu.scrollY,
+  //   ppu.fetchX,
+  //   ppu.ly
+  // );
+  // the position of next pixel to fetch
   const mapY = ppu.ly + ppu.scrollY;
   const mapX = ppu.fetchX + ppu.scrollX;
+  // console.log('bg', 'x:', mapX, 'y:', mapY);
 
   // the address to index of tile
-  const addr = ppu.bgMapArea + Math.floor(mapX / 8) + (Math.floor(mapY / 8) * 32);
+  const addr = ppu.bgMapArea + Math.floor(mapX / 8) + Math.floor(mapY / 8) * 32;
+  // console.log(addr.toString(16).padStart(4, '0'))
+
+  // console.log(addr.toString(16).padStart(4, '0'));
 
   let tileIndex = ppu.emulator.busRead(addr);
+  // if (tileIndex) {
+  //   count++;
+  //   if (count === 400) {
+  //     throw new Error('test');
+  //   }
+  // console.log('x:', mapX,'y:', mapY,addr.toString(16).padStart(4, '0'), tileIndex)
+  // };
+  // console.log('bg tile index', tileIndex.toString(16).padStart(4, '0'));
   if (ppu.bgwDataArea === 0x8800) {
     // if bgwTile start at 0x8800, the index area is -128 to 127
     tileIndex = tileIndex + 128;
-  } 
+  }
 
   // every tile is 16 bytes, and each line is 2 bytes
   ppu.bgwDataAddrOffset = tileIndex * 16 + (mapY % 8) * 2;
+  // console.log('bg', ppu.bgwDataAddrOffset.toString(16).padStart(4, '0'));
   ppu.tileXBegin = Math.floor((ppu.fetchX + ppu.scrollX) / 8) * 8 - ppu.scrollX;
 }
 
 function getSpriteTile(ppu: PPU) {
-  // TODO maybe remove this property
+  // TODO maybe remove this propert
   ppu.numFetchedSprites = 0;
 
   for (let i = 0; i < ppu.sprites.length; i++) {
@@ -93,10 +127,12 @@ function getSpriteTile(ppu: PPU) {
     const spriteX = sprite.x - 8;
 
     // if first or last pixel of the sprite is in the tile
-    if (((spriteX >= ppu.tileXBegin) && (spriteX < ppu.tileXBegin + 8)) ||
-      ((spriteX + 7 > ppu.tileXBegin) && (spriteX + 7 < ppu.tileXBegin + 8))) {
-        ppu.fetchedSprites[ppu.numFetchedSprites] = sprite;
-        ppu.numFetchedSprites += 1;
+    if (
+      (spriteX >= ppu.tileXBegin && spriteX < ppu.tileXBegin + 8) ||
+      (spriteX + 7 > ppu.tileXBegin && spriteX + 7 < ppu.tileXBegin + 8)
+    ) {
+      ppu.fetchedSprites[ppu.numFetchedSprites] = sprite;
+      ppu.numFetchedSprites += 1;
     }
 
     if (ppu.numFetchedSprites >= 3) {
@@ -118,11 +154,13 @@ function getSpriteData(ppu: PPU, dataIndex: number) {
     let tile = sprite.tile;
 
     if (spriteHeight === 16) {
-      tile &= 0xFE;
+      tile &= 0xfe;
     }
 
-    ppu.spriteFetchedData[index * 2 + dataIndex] = ppu.emulator.busRead(0x8000 + (tile * 16) + ty * 2 + dataIndex);
-  })
+    ppu.spriteFetchedData[index * 2 + dataIndex] = ppu.emulator.busRead(
+      0x8000 + tile * 16 + ty * 2 + dataIndex
+    );
+  });
 }
 
 function pushBgwPixels(ppu: PPU) {
@@ -132,6 +170,8 @@ function pushBgwPixels(ppu: PPU) {
     if (ppu.tileXBegin + i < 0) {
       continue;
     }
+
+    // console.log('pushX', ppu.pushX);
 
     if (!ppu.fetchWindow && ppu.isPixelWindow(ppu.pushX, ppu.ly)) {
       ppu.fetchWindow = true;
@@ -144,12 +184,10 @@ function pushBgwPixels(ppu: PPU) {
       palette: 0,
     };
     if (ppu.bgWindowEnabled) {
-      if (ppu.fetchWindow) {
-        const lo = bitGet(b1, 7 - i);
-        const hi = bitGet(b2, 7 - i);
-        pixel.color = lo | hi;
-        pixel.palette = ppu.bgp;
-      }
+      const lo = bitGet(b1, 7 - i);
+      const hi = bitGet(b2, 7 - i) << 1;
+      pixel.color = lo | hi;
+      pixel.palette = ppu.bgp;
     }
     ppu.bgwQueue.push(pixel);
     ppu.pushX += 1;
@@ -167,9 +205,9 @@ function pushSpritePixels(ppu: PPU, pushBegin: number, pushEnd: number) {
     if (ppu.objEnabled) {
       ppu.fetchedSprites.forEach((sprite, index) => {
         const spriteX = sprite.x - 8;
-        const offset = index - spriteX;
+        const offset = i - spriteX;
 
-        if (offset < 0 || offset> 7) return;
+        if (offset < 0 || offset > 7) return;
 
         const b1 = ppu.spriteFetchedData[index * 2];
         const b2 = ppu.spriteFetchedData[index * 2 + 1];
@@ -178,21 +216,21 @@ function pushSpritePixels(ppu: PPU, pushBegin: number, pushEnd: number) {
         if (sprite.xFlip) {
           bit = offset;
         }
-        
+
         const lo = bitGet(b1, bit);
         const hi = bitGet(b2, bit) << 1;
         const color = lo | hi;
 
-        if (color == 0){
+        if (color == 0) {
           return;
         }
 
         pixel.color = color;
         pixel.palette = sprite.dmgPalette ? ppu.obp1 : ppu.obp0;
         pixel.bgPriority = sprite.priority;
-      })
+      });
     }
-    
+
     ppu.objQueue.push(pixel);
   }
 }
