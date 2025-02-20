@@ -19,9 +19,10 @@ export class Timer {
   tick() {
     const prevDiv = this.div;
     this.div++;
-    let timaUpdate = false;
 
     if (this.timaEnabled) {
+      let timaUpdate = false;
+
       switch (this.clockSelect) {
         case 0: // 4096 Hz
           timaUpdate = !!(prevDiv & (1 << 9)) && (!(this.div & (1 << 9)));

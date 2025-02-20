@@ -15,8 +15,8 @@ export function debug(pc: number, cpu: CPU) {
   }
 
   // if (`${pc.toString(16).padStart(2, '0')}` === 'c369') {
-    // console.log(logStack);
-    // cpu.emulator.paused = true;
+  // console.log(logStack);
+  // cpu.emulator.paused = true;
   // }
 
   // if (cpu.instruction?.type === InstructionType.DAA) {
@@ -27,8 +27,10 @@ export function debug(pc: number, cpu: CPU) {
     logStack.shift();
   }
 
+  // console.log(log);
+
   if (cpu.emulator.isDebug) {
-    if (!isShowLog) { 
+    if (!isShowLog) {
       console.log(logStack);
       isShowLog = true;
     } else {

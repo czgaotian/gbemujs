@@ -3,7 +3,12 @@ import { GameBoy } from '../emu/emu';
 import { INTERRUPT_TYPE } from '../types/cpu';
 import { BGWPixel, ObjectPixel, PPU_FETCH_STATE, PPU_MODE } from '../types/ppu';
 import { bitGet, bitSet, bitTest } from '../utils';
-import { tickOamScan, tickDrawing, tickHBlank, tickVBlank } from './statusMachine';
+import {
+  tickOamScan,
+  tickDrawing,
+  tickHBlank,
+  tickVBlank,
+} from './statusMachine';
 import { getTile, getData, pushPixels } from './fetcher';
 import { applyPalette } from '../utils/ppu';
 import { OamEntry } from './oam';
@@ -11,7 +16,7 @@ import { OamEntry } from './oam';
 export class PPU {
   public emulator: GameBoy;
 
-  // 0xff40 lcds - LCD control
+  // 0xff40 lcdc - LCD control
   // 0xff41 lcds - LCD status
   // 0xff42 scrollY - Scroll Y
   // 0xff43 scrollX - Scroll X
@@ -120,9 +125,11 @@ export class PPU {
       this.dmaStartDelay--;
       return;
     }
-    this.emulator.oam[this.dmaOffset] = this.emulator.busRead((this.dma << 8) & 0xFF00 + this.dmaOffset);
+    this.emulator.oam[this.dmaOffset] = this.emulator.busRead(
+      (this.dma << 8) & (0xff00 + this.dmaOffset)
+    );
     this.dmaOffset++;
-    this.dmaActive = this.dmaOffset < 0xA0;
+    this.dmaActive = this.dmaOffset < 0xa0;
   }
 
   read(address: number) {
@@ -134,6 +141,7 @@ export class PPU {
   }
 
   write(address: number, value: number) {
+    // console.log(address - 0xff40, value.toString(16).padStart(4, '0'));
     if (address >= 0xff40 && address <= 0xff4b) {
       if (address === 0xff40 && this.enabled && !bitTest(value, 7)) {
         // Reset mode to HBLANK
@@ -286,7 +294,6 @@ export class PPU {
     return bitTest(this.lcdc, 0);
   }
 
-
   get lycIntEnabled() {
     return bitTest(this.lcds, 6);
   }
@@ -327,7 +334,11 @@ export class PPU {
 
   increaseLy() {
     // check current line is crossing window
-    if (this.windowVisible && this.ly >= this.wy && this.ly < this.wy + PPU_YRES) {
+    if (
+      this.windowVisible &&
+      this.ly >= this.wy &&
+      this.ly < this.wy + PPU_YRES
+    ) {
       this.windowLine++;
     }
     this.ly++;
@@ -341,16 +352,16 @@ export class PPU {
     }
   }
 
-  // 166 is hardware bug 
+  // 166 is hardware bug
   // https://gbdev.io/pandocs/Scrolling.html#ff4aff4b--wy-wx-window-y-position-x-position-plus-7
   get windowVisible() {
     return this.windowEnabled && this.wx <= 166 && this.wy < PPU_YRES;
   }
 
-  // + 7 is hardware bug 
+  // + 7 is hardware bug
   // https://gbdev.io/pandocs/Scrolling.html#ff4aff4b--wy-wx-window-y-position-x-position-plus-7
   isPixelWindow(screenX: number, screenY: number) {
-    return this.windowVisible && (screenX + 7 >= this.wx) && (screenY >= this.wy);
+    return this.windowVisible && screenX + 7 >= this.wx && screenY >= this.wy;
   }
 
   fetcherGetTile = getTile.bind(this);
@@ -371,22 +382,41 @@ export class PPU {
       const color = drawObj ? objColor : bgColor;
 
       switch (color) {
-        case 0: this.setPixel(this.drawX, this.ly, 153, 161, 120, 255); break;
-        case 1: this.setPixel(this.drawX, this.ly, 87, 93, 67, 255); break;
-        case 2: this.setPixel(this.drawX, this.ly, 42, 46, 32, 255); break;
-        case 3: this.setPixel(this.drawX, this.ly, 10, 10, 2, 255); break;
+        case 0:
+          this.setPixel(this.drawX, this.ly, 153, 161, 120, 255);
+          break;
+        case 1:
+          this.setPixel(this.drawX, this.ly, 87, 93, 67, 255);
+          break;
+        case 2:
+          this.setPixel(this.drawX, this.ly, 42, 46, 32, 255);
+          break;
+        case 3:
+          this.setPixel(this.drawX, this.ly, 10, 10, 2, 255);
+          break;
       }
 
       this.drawX++;
     }
   }
 
-  setPixel(this: PPU, x: number, y: number, r: number, g: number, b: number, a: number) {
+  setPixel(
+    this: PPU,
+    x: number,
+    y: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number
+  ) {
     if (x < 0 || x >= PPU_XRES || y < 0 || y >= PPU_YRES) {
       throw new Error(`Invalid pixel coordinates: x=${x}, y=${y}`);
-    };
+    }
 
-    const offset = (this.currentBackBuffer * PPU_XRES * PPU_YRES * 4) + (y * PPU_XRES * 4) + (x * 4);
+    const offset =
+      this.currentBackBuffer * PPU_XRES * PPU_YRES * 4 +
+      y * PPU_XRES * 4 +
+      x * 4;
 
     this.pixels[offset] = r;
     this.pixels[offset + 1] = g;

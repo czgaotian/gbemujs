@@ -253,15 +253,12 @@ export function LD(this: CPU) {
   */
   if (addressMode === AM.HL_SPR) {
     const value = this.readRegister(registerType2);
-    console.log(`v: ${value.toString(16).padStart(4, '0')} fd: ${fetchedData.toString(16).padStart(4, '0')}`);
     const result =(value + (fetchedData << 24 >> 24)) & 0xffff;
     const h = (value & 0xF) +  (fetchedData & 0xF) >= 0x10;
     const c = (value & 0xFF) + (fetchedData & 0xFF) >= 0x100;
 
     this.setFlags(0, 0, h, c);
     this.setRegister(registerType1, result);
-
-    console.log(`reg: ${this.readRegister(registerType1).toString(16).padStart(4, '0')} f: ${this.registers.f.toString(16).padStart(4, '0')}`);
 
     return;
   }
