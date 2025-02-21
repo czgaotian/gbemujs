@@ -1,7 +1,7 @@
-import { GameBoy } from "../emu/emu";
-import { PALETTE, PPU_XRES, PPU_YRES } from "../constants/ppu";
-import { registerFDisplay } from "../utils/cpu";
-import { cssString, domString } from "./template";
+import { GameBoy } from '../emu/emu';
+import { PALETTE, PPU_XRES, PPU_YRES } from '../constants/ppu';
+import { registerFDisplay } from '../utils/cpu';
+import { cssString, domString } from './template';
 
 export class GameBoyDom extends HTMLElement {
   gameBoy: GameBoy;
@@ -12,7 +12,7 @@ export class GameBoyDom extends HTMLElement {
   }
 
   connectedCallback() {
-    const shadow = this.attachShadow({ mode: "open" });
+    const shadow = this.attachShadow({ mode: 'open' });
 
     const template = document.createElement('template');
     template.innerHTML = domString;
@@ -59,8 +59,13 @@ export class GameBoyDom extends HTMLElement {
     });
 
     this.gameBoy.on('serial', (data: number[]) => {
-      const serialOutput = shadow.getElementById('serial-output') as HTMLPreElement;
-      const text = data.reduce((acc, curr) => acc + String.fromCharCode(curr), '');
+      const serialOutput = shadow.getElementById(
+        'serial-output'
+      ) as HTMLPreElement;
+      const text = data.reduce(
+        (acc, curr) => acc + String.fromCharCode(curr),
+        ''
+      );
       serialOutput.textContent = text;
     });
 
@@ -73,16 +78,51 @@ export class GameBoyDom extends HTMLElement {
       tileRender(canvas, this.gameBoy);
       screenRender(screen, frame);
     });
+
+    window.addEventListener('keyup', (e) => handleKeyEvent(e, true));
+    window.addEventListener('keydown', (e) => handleKeyEvent(e, false));
+
+    const handleKeyEvent = (e: KeyboardEvent, isPressed: boolean) => {
+      switch (e.code) {
+        case 'KeyW':
+          this.gameBoy.joypad.up = isPressed;
+        case 'KeyA':
+          this.gameBoy.joypad.left = isPressed;
+        case 'KeyS':
+          this.gameBoy.joypad.down = isPressed;
+        case 'KeyD':
+          this.gameBoy.joypad.right = isPressed;
+        case 'KeyG':
+          this.gameBoy.joypad.select = isPressed;
+        case 'KeyH':
+          this.gameBoy.joypad.start = isPressed;
+        case 'KeyJ':
+          this.gameBoy.joypad.a = isPressed;
+        case 'KeyK':
+          this.gameBoy.joypad.b = isPressed;
+      }
+    };
   }
 }
 
 function emuInfoRender(dom: HTMLPreElement, gameBoy: GameBoy) {
   dom.textContent = `---- CPU ----
-PC: ${gameBoy.cpu.registers.pc.toString(16).padStart(4, '0')} SP: ${gameBoy.cpu.registers.sp.toString(16).padStart(4, '0')}
-A: ${gameBoy.cpu.registers.a.toString(16).padStart(4, '0')} F: ${registerFDisplay(gameBoy.cpu.registers.f)}
-BC: ${gameBoy.cpu.registers.bc.toString(16).padStart(4, '0')} DE: ${gameBoy.cpu.registers.de.toString(16).padStart(4, '0')}
+PC: ${gameBoy.cpu.registers.pc
+    .toString(16)
+    .padStart(4, '0')} SP: ${gameBoy.cpu.registers.sp
+    .toString(16)
+    .padStart(4, '0')}
+A: ${gameBoy.cpu.registers.a
+    .toString(16)
+    .padStart(4, '0')} F: ${registerFDisplay(gameBoy.cpu.registers.f)}
+BC: ${gameBoy.cpu.registers.bc
+    .toString(16)
+    .padStart(4, '0')} DE: ${gameBoy.cpu.registers.de
+    .toString(16)
+    .padStart(4, '0')}
 HL: ${gameBoy.cpu.registers.hl.toString(16).padStart(4, '0')}
-`}
+`;
+}
 
 function tileRender(canvas: HTMLCanvasElement, emulator: GameBoy): void {
   const width = 128;
@@ -99,11 +139,12 @@ function tileRender(canvas: HTMLCanvasElement, emulator: GameBoy): void {
       const tileLine2 = vram[i * 16 + y * 2 + 1];
       for (let x = 0; x < 8; x += 1) {
         const dx = 7 - x;
-        const colorId = ((tileLine1 >> dx) & 1) | (((tileLine2 >> dx) & 1) << 1);
+        const colorId =
+          ((tileLine1 >> dx) & 1) | (((tileLine2 >> dx) & 1) << 1);
         const color = PALETTE[colorId];
         const ax = px + x;
         const ay = py + y;
-         
+
         const index = (ay * width + ax) * 4;
         bitMap[index] = (color >>> 24) & 0xff;
         bitMap[index + 1] = (color >>> 16) & 0xff;
@@ -112,13 +153,16 @@ function tileRender(canvas: HTMLCanvasElement, emulator: GameBoy): void {
       }
     }
   }
-  
+
   const ctx = canvas.getContext('2d');
   const imgData = new ImageData(bitMap, width, height);
   ctx?.putImageData(imgData, 0, 0);
 }
 
-function screenRender(canvas: HTMLCanvasElement, frame: Uint8ClampedArray): void {
+function screenRender(
+  canvas: HTMLCanvasElement,
+  frame: Uint8ClampedArray
+): void {
   const ctx = canvas.getContext('2d');
   const imgData = new ImageData(frame, PPU_XRES, PPU_YRES);
   ctx?.putImageData(imgData, 0, 0);

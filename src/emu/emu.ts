@@ -28,7 +28,7 @@ export class GameBoy {
 
   public vram: Uint8Array = new Uint8Array(0x2000);
   public wram: Uint8Array = new Uint8Array(0x2000);
-  public oam: Uint8Array = new Uint8Array(0xA0);
+  public oam: Uint8Array = new Uint8Array(0xa0);
   public hram: Uint8Array = new Uint8Array(0x80);
 
   public intFlags: number;
@@ -39,7 +39,7 @@ export class GameBoy {
     this.cpu = new CPU(this);
     this.ppu = new PPU(this);
     this.apu = new APU();
-    this.joypad = new Joypad();
+    this.joypad = new Joypad(this);
     this.timer = new Timer(this);
     this.serial = new Serial(this);
 
@@ -66,6 +66,7 @@ export class GameBoy {
 
     this.cpu.init();
     this.ppu.init();
+    this.joypad.init();
     this.timer.init();
     this.serial.init();
 
@@ -99,6 +100,7 @@ export class GameBoy {
   }
 
   public update(deltaTime: number) {
+    this.joypad.update();
     // clock speed is 4194304Hz
     const frameCycles = 4194304.0 * deltaTime * this.clockSpeedScale;
     const endCycles = this.clockCycles + frameCycles;
@@ -113,8 +115,12 @@ export class GameBoy {
   }
 
   updateFrame() {
-    const offset = ((this.ppu.currentBackBuffer + 1) % 2) * PPU_XRES * PPU_YRES * 4;
-    const frame = this.ppu.pixels.subarray(offset, offset + PPU_XRES * PPU_YRES * 4);
+    const offset =
+      ((this.ppu.currentBackBuffer + 1) % 2) * PPU_XRES * PPU_YRES * 4;
+    const frame = this.ppu.pixels.subarray(
+      offset,
+      offset + PPU_XRES * PPU_YRES * 4
+    );
     this.emit('frame-update', frame);
   }
 

@@ -1,6 +1,10 @@
 export const domString = `
-  <div style="display: flex; margin-bottom: 10px;">
+  <div style="display: flex; margin-bottom: 10px; gap: 8px;">
     <canvas id="screen" width="160" height="144" style="border: 1px solid #000;"></canvas>
+    <div style="display: flex; flex-direction: column">
+      <div id="cart-info">Cart: -</div>
+      <div id="joypad-info">Joypad: -</div>
+    </div>
   </div>
   <div style="margin-bottom: 10px;">
     game rom: <input type="file" id="rom-file" title="Select ROM" />
@@ -23,7 +27,7 @@ export const domString = `
       <pre id="serial-output" style="width: 256px; margin: 0; border: 1px solid #000; min-height: 192px; overflow: auto;"></pre>
     </div>
   </div>
-`
+`;
 
 export const cssString = `
 #screen {
@@ -35,4 +39,4 @@ export const cssString = `
   width: 256px;
   height: 384px;
 }
-`
+`;

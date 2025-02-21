@@ -1,4 +1,4 @@
-import { GameBoy } from "./emu";
+import { GameBoy } from './emu';
 
 // 0x0000 - 0x3FFF : ROM Bank 0
 // 0x4000 - 0x7FFF : ROM Bank 1 - Switchable
@@ -19,54 +19,57 @@ import { GameBoy } from "./emu";
  * @returns u8
  */
 export function busRead(this: GameBoy, address: number): number {
-  if (address <= 0x7FFF) {
-    return this.cartridge.read(address) & 0xFF;
+  if (address <= 0x7fff) {
+    return this.cartridge.read(address) & 0xff;
   }
-  if (address >= 0x8000 && address <= 0x9FFF) {
-    return this.vram[address - 0x8000] & 0xFF;
+  if (address >= 0x8000 && address <= 0x9fff) {
+    return this.vram[address - 0x8000] & 0xff;
   }
-  if (address <= 0xBFFF) {
+  if (address <= 0xbfff) {
     // 卡带ROM和RAM区域
-    return this.cartridge.read(address) & 0xFF;
+    return this.cartridge.read(address) & 0xff;
   }
-  if (address <= 0xDFFF) {
+  if (address <= 0xdfff) {
     // work ram
-    return this.wram[address - 0xC000] & 0xFF;
+    return this.wram[address - 0xc000] & 0xff;
   }
-  if (address <= 0xFDFF) {
+  if (address <= 0xfdff) {
     // echo ram
     return 0xff;
   }
-  if (address >= 0xFE00 && address <= 0xFE9F) {
+  if (address >= 0xfe00 && address <= 0xfe9f) {
     // Object Attribute Memory
-    return this.oam[address - 0xFE00] & 0xFF;
+    return this.oam[address - 0xfe00] & 0xff;
   }
-  if (address <= 0xFEFF) {
+  if (address <= 0xfeff) {
     // Reserved - Unusable
     return 0xff;
   }
-  if (address >= 0xFF01 && address <= 0xFF02) {
+  if (address === 0xff00) {
+    return this.joypad.read();
+  }
+  if (address >= 0xff01 && address <= 0xff02) {
     // 串口
-    return this.serial.read(address) & 0xFF;
+    return this.serial.read(address) & 0xff;
   }
-  if (address >= 0xFF04 && address <= 0xFF07) {
+  if (address >= 0xff04 && address <= 0xff07) {
     // 定时器
-    return this.timer.read(address) & 0xFF;
+    return this.timer.read(address) & 0xff;
   }
-  if (address ===  0xFF0F) {
+  if (address === 0xff0f) {
     // IF
-    return this.intFlags & 0xFF | 0xE0;
+    return (this.intFlags & 0xff) | 0xe0;
   }
-  if (address >= 0xFF40 && address <= 0xFF4B) {
+  if (address >= 0xff40 && address <= 0xff4b) {
     // ppu
-    return this.ppu.read(address) & 0xFF;
+    return this.ppu.read(address) & 0xff;
   }
-  if (address >= 0xFF80 && address <= 0xFFFE) {
-    return this.hram[address - 0xFF80] & 0xFF;
+  if (address >= 0xff80 && address <= 0xfffe) {
+    return this.hram[address - 0xff80] & 0xff;
   }
-  if (address === 0xFFFF) {
+  if (address === 0xffff) {
     // IE
-    return this.intEnableFlags & 0xFF | 0xE0;
+    return (this.intEnableFlags & 0xff) | 0xe0;
   }
   // console.log(`busRead: unsupport address ${address}(${address.toString(16)})`);
   return 0xff;
@@ -78,69 +81,74 @@ export function busRead(this: GameBoy, address: number): number {
  * @returns void
  */
 export function busWrite(this: GameBoy, address: number, value: number): void {
-  value = value & 0xFF;
+  value = value & 0xff;
 
   if (!address) {
     this.paused = true;
   }
 
-  if (address <= 0x7FFF) {
+  if (address <= 0x7fff) {
     return;
   }
-  if (address >= 0x8000 && address <= 0x9FFF) {
+  if (address >= 0x8000 && address <= 0x9fff) {
     this.vram[address - 0x8000] = value;
     return;
   }
-  if (address <= 0xBFFF) {
+  if (address <= 0xbfff) {
     // 卡带ROM和RAM区域
     this.cartridge.write(address, value);
     return;
   }
-  if (address <= 0xDFFF) {
+  if (address <= 0xdfff) {
     // work ram
-    this.wram[address - 0xC000] = value;    
+    this.wram[address - 0xc000] = value;
     return;
   }
-  if (address <= 0xFDFF) {
+  if (address <= 0xfdff) {
     // echo ram
     return;
   }
-  if (address >= 0xFE00 && address <= 0xFE9F) {
+  if (address >= 0xfe00 && address <= 0xfe9f) {
     // Object Attribute Memory
-    this.oam[address - 0xFE00] = value;
+    this.oam[address - 0xfe00] = value;
     return;
   }
-  if (address <= 0xFEFF) {
+  if (address <= 0xfeff) {
     // Reserved - Unusable
     return;
   }
-  if (address >= 0xFF01 && address <= 0xFF02) {
+  if (address === 0xff00) {
+    // joypad
+    this.joypad.write(value);
+    return;
+  }
+  if (address >= 0xff01 && address <= 0xff02) {
     // 串口
     this.serial.write(address, value);
     return;
   }
-  if (address >= 0xFF04 && address <= 0xFF07) {
+  if (address >= 0xff04 && address <= 0xff07) {
     // 定时器
     this.timer.write(address, value);
     return;
   }
-  if (address ===  0xFF0F) {
+  if (address === 0xff0f) {
     // IF
-    this.intFlags = value & 0x1F;
+    this.intFlags = value & 0x1f;
     return;
   }
-  if (address >= 0xFF40 && address <= 0xFF4B) {
+  if (address >= 0xff40 && address <= 0xff4b) {
     // ppu
     this.ppu.write(address, value);
     return;
   }
-  if (address >= 0xFF80 && address <= 0xFFFE) {
-    this.hram[address - 0xFF80] = value;
+  if (address >= 0xff80 && address <= 0xfffe) {
+    this.hram[address - 0xff80] = value;
     return;
   }
-  if (address === 0xFFFF) {
+  if (address === 0xffff) {
     // IE
-    this.intEnableFlags = value & 0x1F;
+    this.intEnableFlags = value & 0x1f;
     return;
   }
   // console.log(`busWrite: unsupport address ${address}(${address.toString(16)})`);
@@ -161,7 +169,11 @@ export function busRead16(this: GameBoy, address: number): number {
  * @param value u16
  * @returns void
  */
-export function busWrite16(this: GameBoy, address: number, value: number): void {
-  this.busWrite(address + 1, (value >>> 8) & 0xFF);
-  this.busWrite(address, value & 0xFF);
+export function busWrite16(
+  this: GameBoy,
+  address: number,
+  value: number
+): void {
+  this.busWrite(address + 1, (value >>> 8) & 0xff);
+  this.busWrite(address, value & 0xff);
 }
