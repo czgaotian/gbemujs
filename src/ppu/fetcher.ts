@@ -70,7 +70,7 @@ function getWindowTile(ppu: PPU) {
   // console.log('win tile index', tileIndex.toString(16).padStart(4, '0'));
 
   if (ppu.bgwDataArea === 0x8800) {
-    tileIndex = tileIndex + 128;
+    tileIndex = ((tileIndex << 24) >> 24) + 128;
   }
 
   ppu.bgwDataAddrOffset = tileIndex * 16 + (windowY % 8) * 2;
@@ -109,7 +109,7 @@ function getBackgroundTile(ppu: PPU) {
   // console.log('bg tile index', tileIndex.toString(16).padStart(4, '0'));
   if (ppu.bgwDataArea === 0x8800) {
     // if bgwTile start at 0x8800, the index area is -128 to 127
-    tileIndex = tileIndex + 128;
+    tileIndex = ((tileIndex << 24) >> 24) + 128;
   }
 
   // every tile is 16 bytes, and each line is 2 bytes
@@ -186,7 +186,7 @@ function pushBgwPixels(ppu: PPU) {
     if (ppu.bgWindowEnabled) {
       const lo = bitGet(b1, 7 - i);
       const hi = bitGet(b2, 7 - i) << 1;
-      pixel.color = lo | hi;
+      pixel.color = hi | lo;
       pixel.palette = ppu.bgp;
     }
     ppu.bgwQueue.push(pixel);
@@ -203,14 +203,16 @@ function pushSpritePixels(ppu: PPU, pushBegin: number, pushEnd: number) {
     };
 
     if (ppu.objEnabled) {
-      ppu.fetchedSprites.forEach((sprite, index) => {
+      // ppu.fetchedSprites.forEach((sprite, index) => {
+      for (let s = 0; s < ppu.numFetchedSprites; s++) {
+        const sprite = ppu.fetchedSprites[s];
         const spriteX = sprite.x - 8;
         const offset = i - spriteX;
 
-        if (offset < 0 || offset > 7) return;
+        if (offset < 0 || offset > 7) continue;
 
-        const b1 = ppu.spriteFetchedData[index * 2];
-        const b2 = ppu.spriteFetchedData[index * 2 + 1];
+        const b1 = ppu.spriteFetchedData[s * 2];
+        const b2 = ppu.spriteFetchedData[s * 2 + 1];
         let bit = 7 - offset;
 
         if (sprite.xFlip) {
@@ -219,16 +221,17 @@ function pushSpritePixels(ppu: PPU, pushBegin: number, pushEnd: number) {
 
         const lo = bitGet(b1, bit);
         const hi = bitGet(b2, bit) << 1;
-        const color = lo | hi;
+        const color = hi | lo;
 
         if (color == 0) {
-          return;
+          continue;
         }
 
         pixel.color = color;
         pixel.palette = sprite.dmgPalette ? ppu.obp1 : ppu.obp0;
         pixel.bgPriority = sprite.priority;
-      });
+        break;
+      }
     }
 
     ppu.objQueue.push(pixel);
