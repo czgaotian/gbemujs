@@ -136,7 +136,7 @@ function getSpriteTile(ppu: PPU) {
     }
 
     if (ppu.numFetchedSprites >= 3) {
-      return;
+      break;
     }
   }
 }
