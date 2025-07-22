@@ -6,6 +6,7 @@ import { SERIAL } from '@gbjs/core/event';
 // running in
 function main() {
   const romPath = process.argv[2];
+
   if (!romPath) {
     console.error('Usage: bun cli.ts <path-to-rom>');
     process.exit(1);
@@ -32,7 +33,7 @@ function main() {
     });
 
     console.log(`Starting emulation for ${path.basename(romPath)}...`);
-    // gameBoy.startCli(romData);
+    gameBoy.start(romData);
   } catch (error) {
     console.error('Failed to load or run ROM:', error);
     process.exit(1);

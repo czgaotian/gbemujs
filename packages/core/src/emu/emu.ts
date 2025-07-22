@@ -9,6 +9,7 @@ import { Serial } from '../serial/serial';
 import { INTERRUPT_TYPE as IT } from '../types';
 import { EventBus, SERIAL, FRAME_UPDATE } from '../event';
 import { PPU_XRES, PPU_YRES } from '../constants/ppu';
+import { TICKS_PER_SEC, MAX_TIME_STEP } from '../constants';
 
 const eventBus = new EventBus();
 
@@ -80,7 +81,36 @@ export class GameBoy {
 
   public start(data: Uint8Array): void {
     this.loadROM(data);
-    requestAnimationFrame(this.emulatorLoop.bind(this));
+
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.document !== 'undefined'
+    ) {
+      // browser
+      const browserLoop = (currentTime: number) => {
+        const deltaTime = Math.min(currentTime - this.lastTime, MAX_TIME_STEP);
+        this.lastTime = currentTime;
+        this.update(deltaTime);
+        requestAnimationFrame(browserLoop);
+      };
+      requestAnimationFrame(browserLoop);
+    } else if (
+      typeof process !== 'undefined' &&
+      process.versions != null &&
+      process.versions.node != null
+    ) {
+      // Node.js
+      const nodeLoop = (prevTime: number) => {
+        const currentTime = Date.now();
+        const deltaTime = Math.min(
+          (currentTime - prevTime) / 1000,
+          MAX_TIME_STEP
+        );
+        this.update(deltaTime);
+        setImmediate(() => nodeLoop(currentTime));
+      };
+      nodeLoop(Date.now());
+    }
   }
 
   public pause(): void {
@@ -91,17 +121,10 @@ export class GameBoy {
     this.paused = false;
   }
 
-  public emulatorLoop(currentTime: number) {
-    const deltaTime = Math.min(currentTime - this.lastTime, 0.125);
-    this.lastTime = currentTime;
-    this.update(deltaTime);
-    requestAnimationFrame(this.emulatorLoop.bind(this));
-  }
-
   public update(deltaTime: number) {
     this.joypad.update();
     // clock speed is 4194304Hz
-    const frameCycles = 4194304.0 * deltaTime * this.clockSpeedScale;
+    const frameCycles = TICKS_PER_SEC * deltaTime * this.clockSpeedScale;
     const endCycles = this.clockCycles + frameCycles;
     while (this.clockCycles < endCycles && !this.paused) {
       this.cpu.step();

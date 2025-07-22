@@ -7,10 +7,12 @@
   "license": "GPL-3.0",
   "scripts": {
     "dev": "pnpm --filter web dev",
-    "test": "pnpm --filter core test"
+    "test": "pnpm --filter core test",
+    "doctor": "pnpm --filter cli run doctor"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
+    "cross-env": "^7.0.3",
     "typescript": "^5.7.3"
   }
 }

@@ -2,7 +2,9 @@
   "name": "@gbjs/cli",
   "version": "0.0.1",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "doctor": "cross-env DOCTOR=true bun src/index"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
