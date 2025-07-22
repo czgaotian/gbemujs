@@ -29,9 +29,10 @@ export class GameBoyDom extends HTMLElement {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (e: Event) => {
-        const arrayBuffer = (e.target as FileReader).result;
-        const uint8Array = new Uint8Array(arrayBuffer as ArrayBuffer);
-        this.gameBoy.start(uint8Array);
+        const romData = new Uint8Array(
+          (e.target as FileReader).result as ArrayBuffer
+        );
+        this.gameBoy.start(romData);
       };
       reader.readAsArrayBuffer(file);
     });
