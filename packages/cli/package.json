@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "main": "index.js",
   "scripts": {
-    "doctor": "cross-env DOCTOR=true bun src/index"
+    "doctor": "cross-env DOCTOR_ENV=true bun src/index"
   },
   "keywords": [],
   "author": "",

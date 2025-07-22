@@ -21,6 +21,8 @@ import { stackPush, stackPush16, stackPop, stackPop16 } from './stack';
 import { Registers } from './registers';
 import { handleInterrupts } from './interrupts';
 import { debug } from '../debug/debug';
+import { DOCTOR_LOG } from '../event';
+import { doctorLog } from '../utils/cpu';
 
 export class CPU {
   public emulator: GameBoy;
@@ -70,7 +72,15 @@ export class CPU {
         this.emulator.tick(1);
         this.fetchData();
 
-        debug(pc, this);
+        // debug(pc, this);
+
+        // for gameboy doctor
+        if (
+          typeof process !== 'undefined' &&
+          process.env.DOCTOR_ENV === 'true'
+        ) {
+          this.emulator.emit(DOCTOR_LOG, doctorLog(pc, this));
+        }
 
         this.execute();
       }

@@ -1,11 +1,16 @@
 export const SERIAL = 'serial';
 export const FRAME_UPDATE = 'frame_update';
+export const DOCTOR_LOG = 'doctor';
 
-export type EVENT_TYPE = typeof SERIAL | typeof FRAME_UPDATE;
+export type EVENT_TYPE =
+  | typeof SERIAL
+  | typeof FRAME_UPDATE
+  | typeof DOCTOR_LOG;
 
 type ArgMap = {
   [SERIAL]: number[];
   [FRAME_UPDATE]: Uint8ClampedArray;
+  [DOCTOR_LOG]: string;
 };
 
 export class EventBus {

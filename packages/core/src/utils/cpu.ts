@@ -203,3 +203,48 @@ export const cpuLog = (pc: number, cpu: CPU) => {
     .padStart(2, '0')
     .toUpperCase()}`;
 };
+
+export const doctorLog = (pc: number, cpu: CPU) =>
+  `A:${cpu.registers.a
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} F:${cpu.registers.f
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} B:${cpu.registers.b
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} C:${cpu.registers.c
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} D:${cpu.registers.d
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} E:${cpu.registers.e
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} H:${cpu.registers.h
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()} L:${cpu.registers.l
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase()}} SP:${cpu.registers.sp
+    .toString(16)
+    .padStart(4, '0')
+    .toUpperCase()} PC:${pc
+    .toString(16)
+    .padStart(4, '0')
+    .toUpperCase()} PCMEM:${cpu.emulator
+    .busRead(pc)
+    .toString(16)
+    .padStart(2, '0')},${cpu.emulator
+    .busRead(pc + 1)
+    .toString(16)
+    .padStart(2, '0')},${cpu.emulator
+    .busRead(pc + 2)
+    .toString(16)
+    .padStart(2, '0')},${cpu.emulator
+    .busRead(pc + 3)
+    .toString(16)
+    .padStart(2, '0')}`;
