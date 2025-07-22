@@ -7,8 +7,10 @@ import { Cartridge } from '../cartridge/cartridge';
 import { Timer } from '../timer/timer';
 import { Serial } from '../serial/serial';
 import { INTERRUPT_TYPE as IT } from '../types';
-import { EventBus } from '../event/event';
+import { EventBus, SERIAL, FRAME_UPDATE } from '../event/event';
 import { PPU_XRES, PPU_YRES } from '../constants/ppu';
+
+const eventBus = new EventBus();
 
 export class GameBoy {
   public cpu: CPU;
@@ -18,7 +20,6 @@ export class GameBoy {
   public joypad: Joypad;
   public timer: Timer;
   public serial: Serial;
-  public event: EventBus;
 
   public lastTime: number;
   public clockCycles: number = 0;
@@ -49,8 +50,6 @@ export class GameBoy {
     this.intFlags = IT.NONE;
     // 0xFFFF - The interruption enabling flags.
     this.intEnableFlags = 0;
-
-    this.event = new EventBus();
   }
 
   public loadROM(data: Uint8Array): void {
@@ -108,7 +107,7 @@ export class GameBoy {
       this.cpu.step();
 
       if (this.serial.outputBuffer.length > 0) {
-        this.emit('serial', [...this.serial.outputBuffer]);
+        this.emit(SERIAL, [...this.serial.outputBuffer]);
       }
     }
     this.updateFrame();
@@ -121,7 +120,7 @@ export class GameBoy {
       offset,
       offset + PPU_XRES * PPU_YRES * 4
     );
-    this.emit('frame-update', frame);
+    this.emit(FRAME_UPDATE, frame);
   }
 
   public tick(cpuCycle: number) {
@@ -160,15 +159,7 @@ export class GameBoy {
    */
   public busWrite16 = busWrite16.bind(this);
 
-  public on(event: string, callback: (data: any) => void) {
-    this.event.on(event, callback);
-  }
-
-  public off(event: string) {
-    this.event.off(event);
-  }
-
-  public emit(event: string, data: any) {
-    this.event.emit(event, data);
-  }
+  public on = eventBus.on;
+  public off = eventBus.off;
+  public emit = eventBus.emit;
 }

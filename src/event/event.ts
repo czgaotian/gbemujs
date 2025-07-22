@@ -1,19 +1,28 @@
+export const SERIAL = 'serial';
+export const FRAME_UPDATE = 'frame_update';
+
+export type EVENT_TYPE = typeof SERIAL | typeof FRAME_UPDATE;
+
+type ArgMap = {
+  [SERIAL]: number[];
+  [FRAME_UPDATE]: Uint8ClampedArray;
+};
 
 export class EventBus {
-  events: Map<string, Set<Function>> = new Map();
+  events: Map<EVENT_TYPE, Set<Function>> = new Map();
 
-  on(event: string, callback: (data: any) => void) {
+  on<T extends EVENT_TYPE>(event: T, callback: (data: ArgMap[T]) => any) {
     if (!this.events.has(event)) {
       this.events.set(event, new Set());
     }
     this.events.get(event)?.add(callback);
   }
 
-  off(event: string) {
+  off(event: EVENT_TYPE) {
     this.events.delete(event);
   }
 
-  emit(event: string, data: any) {
+  emit<T extends EVENT_TYPE>(event: EVENT_TYPE, data: ArgMap[T]) {
     this.events.get(event)?.forEach((callback) => callback(data));
   }
 }

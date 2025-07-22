@@ -2,6 +2,7 @@ import { GameBoy } from '../emu/emu';
 import { PALETTE, PPU_XRES, PPU_YRES } from '../constants/ppu';
 import { registerFDisplay } from '../utils/cpu';
 import { cssString, domString } from './template';
+import { SERIAL, FRAME_UPDATE } from '../event/event';
 
 export class GameBoyDom extends HTMLElement {
   gameBoy: GameBoy;
@@ -58,7 +59,7 @@ export class GameBoyDom extends HTMLElement {
       console.log(this.gameBoy);
     });
 
-    this.gameBoy.on('serial', (data: number[]) => {
+    this.gameBoy.on(SERIAL, (data) => {
       const serialOutput = shadow.getElementById(
         'serial-output'
       ) as HTMLPreElement;
@@ -73,7 +74,7 @@ export class GameBoyDom extends HTMLElement {
     const canvas = shadow.getElementById('tile-canvas') as HTMLCanvasElement;
     const status = shadow.getElementById('status') as HTMLPreElement;
 
-    this.gameBoy.on('frame-update', (frame: Uint8ClampedArray) => {
+    this.gameBoy.on(FRAME_UPDATE, (frame) => {
       emuInfoRender(status, this.gameBoy);
       tileRender(canvas, this.gameBoy);
       screenRender(screen, frame);
