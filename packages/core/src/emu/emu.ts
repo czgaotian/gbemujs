@@ -159,7 +159,7 @@ export class GameBoy {
    */
   public busWrite16 = busWrite16.bind(this);
 
-  public on = eventBus.on;
-  public off = eventBus.off;
-  public emit = eventBus.emit;
+  public on = eventBus.on.bind(eventBus);
+  public off = eventBus.off.bind(eventBus);
+  public emit = eventBus.emit.bind(eventBus);
 }
