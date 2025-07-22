@@ -1,5 +1,0 @@
-
-export class APU {
-    constructor() {
-    }
-}

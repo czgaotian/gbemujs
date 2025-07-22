@@ -1,20 +1,16 @@
 {
-  "name": "gb-emulator",
-  "version": "1.0.0",
+  "name": "gbjs",
+  "version": "0.0.1",
   "main": "index.js",
-  "scripts": {
-    "dev": "vite",
-    "test": "vitest"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "test": "pnpm --filter core test"
+  },
   "devDependencies": {
-    "@types/bun": "^1.2.2",
     "@types/node": "^22.13.0",
-    "typescript": "^5.7.3",
-    "vite": "^6.1.0",
-    "vitest": "^3.0.5"
+    "typescript": "^5.7.3"
   }
 }

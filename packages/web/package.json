@@ -1,0 +1,16 @@
+{
+  "name": "@gbjs/web",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "vite": "^6.1.0"
+  }
+}
