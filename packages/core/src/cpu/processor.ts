@@ -1,23 +1,19 @@
-import { INSTRUCTION_TYPE as IN, ADDRESS_MODE as AM, REGISTER_TYPE as RT, CONDITION_TYPE as CT, Flag } from '../types';
+import {
+  INSTRUCTION_TYPE as IT,
+  ADDRESS_MODE as AM,
+  REGISTER_TYPE as RT,
+  CONDITION_TYPE as CT,
+  Flag,
+} from '../types';
 import { CPU } from './cpu';
 
-function NOP() {
-}
+function NOP() {}
 
 function NONE() {
   console.log('INVALID INSTRUCTION!\n');
 }
 
-const registerLookup = [
-  RT.B,
-  RT.C,
-  RT.D,
-  RT.E,
-  RT.H,
-  RT.L,
-  RT.HL,
-  RT.A
-];
+const registerLookup = [RT.B, RT.C, RT.D, RT.E, RT.H, RT.L, RT.HL, RT.A];
 
 function decodeRegister(reg: number) {
   if (reg > 0b111) {
@@ -30,7 +26,7 @@ function decodeRegister(reg: number) {
 export function CB(this: CPU) {
   const op = this.fetchedData;
   const reg = decodeRegister(op & 0b111);
-  const bit = (op >>> 3) & 0b111;   // 被操作的位或移位操作类型
+  const bit = (op >>> 3) & 0b111; // 被操作的位或移位操作类型
   const bitOperation = (op >>> 6) & 0b11; // 操作类型（位测试、复位、置位或移位）
   let value = this.readRegister8Bit(reg);
 
@@ -54,7 +50,7 @@ export function CB(this: CPU) {
 
     case 3:
       // SET 位置位
-      value |= (1 << bit);
+      value |= 1 << bit;
       this.setRegister8Bit(reg, value);
       return;
   }
@@ -67,7 +63,7 @@ export function CB(this: CPU) {
       {
         // RLC 带进位循环左移
         const setC = !!(value & (1 << 7));
-        const result = ((value << 1) & 0xFF) | (setC ? 1 : 0);
+        const result = ((value << 1) & 0xff) | (setC ? 1 : 0);
         this.setRegister8Bit(reg, result);
         this.setFlags(result === 0, false, false, setC);
       }
@@ -77,7 +73,7 @@ export function CB(this: CPU) {
       {
         // RRC /带进位循环右移
         const old = value;
-        value = ((value >>> 1) & 0xFF) | ((old & 1) << 7);
+        value = ((value >>> 1) & 0xff) | ((old & 1) << 7);
         this.setRegister8Bit(reg, value);
         this.setFlags(value === 0, false, false, !!(old & 1));
       }
@@ -87,7 +83,7 @@ export function CB(this: CPU) {
       {
         // RL 通过进位标志循环左移
         const c = !!(value & 0x80);
-        value = ((value << 1) & 0xFF) | flagC;
+        value = ((value << 1) & 0xff) | flagC;
         this.setRegister8Bit(reg, value);
         this.setFlags(value === 0, false, false, c);
       }
@@ -97,7 +93,7 @@ export function CB(this: CPU) {
       {
         // RR  通过进位标志循环右移
         const c = !!(value & 1);
-        value = ((value >>> 1) & 0xFF) | (flagC << 7);
+        value = ((value >>> 1) & 0xff) | (flagC << 7);
         this.setRegister8Bit(reg, value);
         this.setFlags(value === 0, false, false, c);
       }
@@ -107,7 +103,7 @@ export function CB(this: CPU) {
       {
         // SLA 算数左移
         const c = !!(value & 0x80);
-        value = (value << 1) & 0xFF;
+        value = (value << 1) & 0xff;
         this.setRegister8Bit(reg, value);
         this.setFlags(value === 0, false, false, c);
       }
@@ -117,7 +113,7 @@ export function CB(this: CPU) {
       {
         // SRA 算术右移
         const c = !!(value & 1);
-        value = (value & 0x80) | ((value >> 1) & 0x7F);
+        value = (value & 0x80) | ((value >> 1) & 0x7f);
         this.setRegister8Bit(reg, value);
         this.setFlags(value === 0, false, false, c);
       }
@@ -126,7 +122,7 @@ export function CB(this: CPU) {
     case 6:
       {
         // SWAP
-        value = ((value & 0xF0) >>> 4) | ((value & 0xF) << 4);
+        value = ((value & 0xf0) >>> 4) | ((value & 0xf) << 4);
         this.setRegister8Bit(reg, value);
         this.setFlags(value === 0, false, false, false);
       }
@@ -204,8 +200,12 @@ function CPL(this: CPU) {
 function CP(this: CPU) {
   const n = this.registers.a - this.fetchedData;
 
-  this.setFlags(n === 0, 1,
-    ((this.registers.a & 0x0F) - (this.fetchedData & 0x0F)) < 0, n < 0);
+  this.setFlags(
+    n === 0,
+    1,
+    (this.registers.a & 0x0f) - (this.fetchedData & 0x0f) < 0,
+    n < 0
+  );
 }
 
 function DI(this: CPU) {
@@ -222,20 +222,19 @@ function HALT(this: CPU) {
 
 const is16Bit = (rt: RT) => {
   return rt >= RT.AF;
-}
+};
 
 export function LD(this: CPU) {
-  const {registerType1, registerType2, addressMode} = this.instruction;
-  const {fetchedData, destinationIsMemory, memoryDestination} = this;
+  const { registerType1, registerType2, addressMode } = this.instruction;
+  const { fetchedData, destinationIsMemory, memoryDestination } = this;
 
-  if (destinationIsMemory) // 写入内存 (dest_is_mem 为 true)
-  {
+  if (destinationIsMemory) {
+    // 写入内存 (dest_is_mem 为 true)
     // LD (BC), A for instance...
     if (is16Bit(registerType2)) {
       this.emulator.tick(1); // 16位数据写入，需要额外周期
       this.emulator.busWrite16(memoryDestination, fetchedData);
-    }
-    else {
+    } else {
       this.emulator.busWrite(memoryDestination, fetchedData);
     }
     this.emulator.tick(1);
@@ -253,9 +252,9 @@ export function LD(this: CPU) {
   */
   if (addressMode === AM.HL_SPR) {
     const value = this.readRegister(registerType2);
-    const result =(value + (fetchedData << 24 >> 24)) & 0xffff;
-    const h = (value & 0xF) +  (fetchedData & 0xF) >= 0x10;
-    const c = (value & 0xFF) + (fetchedData & 0xFF) >= 0x100;
+    const result = (value + ((fetchedData << 24) >> 24)) & 0xffff;
+    const h = (value & 0xf) + (fetchedData & 0xf) >= 0x10;
+    const c = (value & 0xff) + (fetchedData & 0xff) >= 0x100;
 
     this.setFlags(0, 0, h, c);
     this.setRegister(registerType1, result);
@@ -273,7 +272,10 @@ Load High,
 function LDH(this: CPU) {
   // 如果当前指令的目标寄存器(reg_1)是寄存器 A, 则执行加载操作, 0xF0 LDH A, (a8)
   if (this.instruction?.registerType1 === RT.A) {
-    this.setRegister(this.instruction?.registerType1, this.emulator.busRead(this.fetchedData | 0xFF00));
+    this.setRegister(
+      this.instruction?.registerType1,
+      this.emulator.busRead(this.fetchedData | 0xff00)
+    );
   }
   // 否则则执行存储操作, 0xE0 LDH (a8), A
   else {
@@ -320,8 +322,8 @@ function JP(this: CPU) {
 
 // Jump Relative, 相对跳转操作
 export function JR(this: CPU) {
-  const relative = this.fetchedData << 24 >> 24;
-  const addr = (this.registers.pc + relative) & 0xFFFF;
+  const relative = (this.fetchedData << 24) >> 24;
+  const addr = (this.registers.pc + relative) & 0xffff;
   gotoAddress(this, addr, false);
 }
 
@@ -372,7 +374,7 @@ function POP(this: CPU) {
 
   // AF寄存器中的F部分(低8位)是标志寄存器(Flag Register),其低4位总是为0
   if (this.instruction?.registerType1 === RT.AF) {
-    this.setRegister(this.instruction?.registerType1, val & 0xFFF0);
+    this.setRegister(this.instruction?.registerType1, val & 0xfff0);
   }
 }
 
@@ -381,11 +383,11 @@ function PUSH(this: CPU) {
     throw new Error('Null instruction');
   }
 
-  const hi = (this.readRegister(this.instruction?.registerType1) >>> 8) & 0xFF;
+  const hi = (this.readRegister(this.instruction?.registerType1) >>> 8) & 0xff;
   this.emulator.tick(1);
   this.stackPush(hi);
 
-  const lo = this.readRegister(this.instruction?.registerType1) & 0xFF;
+  const lo = this.readRegister(this.instruction?.registerType1) & 0xff;
   this.emulator.tick(1);
   this.stackPush(lo);
 
@@ -401,8 +403,11 @@ function INC(this: CPU) {
   }
 
   // 如果是对内存(HL)操作,则从总线读写数据
-  if (this.instruction.registerType1 === RT.HL && this.instruction.addressMode === AM.MR) {
-    val = (this.emulator.busRead(this.readRegister(RT.HL)) + 1) & 0xFF;
+  if (
+    this.instruction.registerType1 === RT.HL &&
+    this.instruction.addressMode === AM.MR
+  ) {
+    val = (this.emulator.busRead(this.readRegister(RT.HL)) + 1) & 0xff;
     this.emulator.busWrite(this.readRegister(RT.HL), val);
   } else {
     this.setRegister(this.instruction.registerType1, val);
@@ -415,7 +420,7 @@ function INC(this: CPU) {
   }
 
   // 更新标志位: Z:结果是否为0 N:设为0 H:低4位是否溢出 C:保持不变
-  this.setFlags(val === 0, 0, (val & 0x0F) === 0, -1);
+  this.setFlags(val === 0, 0, (val & 0x0f) === 0, -1);
 }
 
 function DEC(this: CPU) {
@@ -424,14 +429,17 @@ function DEC(this: CPU) {
   }
 
   // u16
-  let val = (this.readRegister(this.instruction.registerType1) - 1) & 0xFFFF;
+  let val = (this.readRegister(this.instruction.registerType1) - 1) & 0xffff;
 
   if (is16Bit(this.instruction.registerType1)) {
     this.emulator.tick(1);
   }
 
-  if (this.instruction.registerType1 === RT.HL && this.instruction.addressMode === AM.MR) {
-    val = (this.emulator.busRead(this.readRegister(RT.HL)) - 1) & 0xFFFF;
+  if (
+    this.instruction.registerType1 === RT.HL &&
+    this.instruction.addressMode === AM.MR
+  ) {
+    val = (this.emulator.busRead(this.readRegister(RT.HL)) - 1) & 0xffff;
     this.emulator.busWrite(this.readRegister(RT.HL), val);
   } else {
     this.setRegister(this.instruction.registerType1, val);
@@ -439,12 +447,12 @@ function DEC(this: CPU) {
   }
 
   // 检查操作码是否匹配模式 xxxx1011(0x0B)。如果是，则直接返回不更新标志位
-  if ((this.opcode & 0x0B) === 0x0B) {
+  if ((this.opcode & 0x0b) === 0x0b) {
     return;
   }
 
   // 更新标志位: Z:结果是否为0 N:设为1 H:低4位是否借位 C:保持不变
-  this.setFlags(val === 0, true, (val & 0x0F) === 0x0F, -1);
+  this.setFlags(val === 0, true, (val & 0x0f) === 0x0f, -1);
 }
 
 function SUB(this: CPU) {
@@ -453,11 +461,11 @@ function SUB(this: CPU) {
   }
 
   const registerValue = this.readRegister(this.instruction.registerType1);
-  const val = (registerValue - this.fetchedData) & 0xFFFF;
+  const val = (registerValue - this.fetchedData) & 0xffff;
 
   const z = val === 0;
-  const h = (registerValue & 0xF) - (this.fetchedData & 0xF) < 0;
-  const c = (registerValue - this.fetchedData) < 0;
+  const h = (registerValue & 0xf) - (this.fetchedData & 0xf) < 0;
+  const c = registerValue - this.fetchedData < 0;
 
   this.setRegister(this.instruction.registerType1, val);
   this.setFlags(z, true, h, c);
@@ -467,10 +475,15 @@ export function SBC(this: CPU) {
   const flagC = this.registers.flagC;
   const value1 = this.readRegister(this.instruction.registerType1);
   const value2 = this.fetchedData;
-  const result = (value1 - value2 - flagC) & 0xFF;
+  const result = (value1 - value2 - flagC) & 0xff;
 
   this.setRegister(this.instruction.registerType1, result);
-  this.setFlags(result === 0, true, (value1 & 0xF) < (value2 & 0xF) + flagC, value1 < value2 + flagC);
+  this.setFlags(
+    result === 0,
+    true,
+    (value1 & 0xf) < (value2 & 0xf) + flagC,
+    value1 < value2 + flagC
+  );
 }
 
 function ADC(this: CPU) {
@@ -478,10 +491,10 @@ function ADC(this: CPU) {
   const registerA = this.registers.a;
   const flagC = this.registers.flagC;
 
-  this.registers.a = (registerA + fetchedData + flagC) & 0xFF;
+  this.registers.a = (registerA + fetchedData + flagC) & 0xff;
 
-  const h = (registerA & 0xF) + (fetchedData & 0xF) + flagC > 0xF;
-  const c = registerA + fetchedData + flagC > 0xFF;
+  const h = (registerA & 0xf) + (fetchedData & 0xf) + flagC > 0xf;
+  const c = registerA + fetchedData + flagC > 0xff;
 
   this.setFlags(this.registers.a === 0, 0, h, c);
 }
@@ -502,26 +515,26 @@ function ADD(this: CPU) {
   let val = registerValue + fetchedData;
   // 处理栈指针（RT_SP）的特殊情况
   if (this.instruction.registerType1 === RT.SP) {
-    val = registerValue + (fetchedData << 24 >> 24);
+    val = registerValue + ((fetchedData << 24) >> 24);
   }
 
-  let z: Flag = (val & 0xFF) === 0;
-  let h: Flag = (registerValue & 0xF) + (fetchedData & 0xF) >= 0x10;
-  let c: Flag = (registerValue & 0xFF) + (fetchedData & 0xFF) >= 0x100;
+  let z: Flag = (val & 0xff) === 0;
+  let h: Flag = (registerValue & 0xf) + (fetchedData & 0xf) >= 0x10;
+  let c: Flag = (registerValue & 0xff) + (fetchedData & 0xff) >= 0x100;
 
   if (is_16bit) {
     z = -1;
-    h = (registerValue & 0xFFF) + (fetchedData & 0xFFF) >= 0x1000;
-    c = (registerValue + fetchedData) >= 0x10000;
+    h = (registerValue & 0xfff) + (fetchedData & 0xfff) >= 0x1000;
+    c = registerValue + fetchedData >= 0x10000;
   }
 
   if (this.instruction.registerType1 === RT.SP) {
     z = 0;
-    h = (registerValue & 0xF) + (fetchedData & 0xF) >= 0x10;
-    c = (registerValue & 0xFF) + (fetchedData & 0xFF) >= 0x100;
+    h = (registerValue & 0xf) + (fetchedData & 0xf) >= 0x10;
+    c = (registerValue & 0xff) + (fetchedData & 0xff) >= 0x100;
   }
 
-  this.setRegister(this.instruction.registerType1, val & 0xFFFF);
+  this.setRegister(this.instruction.registerType1, val & 0xffff);
   this.setFlags(z, 0, h, c);
 }
 
@@ -542,25 +555,22 @@ export function DAA(this: CPU) {
 
   if (flagN) {
     if (flagC) {
-      if (flagH) result += 0x9A;
-      else result += 0xA0;
+      if (flagH) result += 0x9a;
+      else result += 0xa0;
+    } else {
+      if (flagH) result += 0xfa;
     }
-    else {
-      if (flagH) result += 0xFA;
-    }
-  }
-  else {
-    if (flagC || (registerA > 0x99)) {
-      if (flagH || ((registerA & 0x0F) > 0x09)) result += 0x66;
+  } else {
+    if (flagC || registerA > 0x99) {
+      if (flagH || (registerA & 0x0f) > 0x09) result += 0x66;
       else result += 0x60;
       c = 1;
-    }
-    else {
-      if (flagH || ((registerA & 0x0F) > 0x09)) result += 0x06;
+    } else {
+      if (flagH || (registerA & 0x0f) > 0x09) result += 0x06;
     }
   }
 
-  result = result & 0xFF;
+  result = result & 0xff;
   this.registers.a = result;
   this.setFlags(result === 0, -1, 0, c);
 }
@@ -573,40 +583,55 @@ function CCF(this: CPU) {
   this.setFlags(-1, 0, 0, !!(this.registers.flagC ^ 1));
 }
 
-export const processorMap: Record<IN, Function> = {
-  [IN.NONE]: NONE,
-  [IN.NOP]: NOP,
-  [IN.CB]: CB,
-  [IN.RLCA]: RLCA,
-  [IN.RRCA]: RRCA,
-  [IN.RLA]: RLA,
-  [IN.RRA]: RRA,
-  [IN.LD]: LD,
-  [IN.LDH]: LDH,
-  [IN.JP]: JP,
-  [IN.JR]: JR,
-  [IN.CALL]: CALL,
-  [IN.RST]: RST,
-  [IN.RET]: RET,
-  [IN.RETI]: RETI,
-  [IN.DI]: DI,
-  [IN.EI]: EI,
-  [IN.HALT]: HALT,
-  [IN.STOP]: STOP,
-  [IN.XOR]: XOR,
-  [IN.OR]: OR,
-  [IN.CPL]: CPL,
-  [IN.CP]: CP,
-  [IN.AND]: AND,
-  [IN.POP]: POP,
-  [IN.PUSH]: PUSH,
-  [IN.INC]: INC,
-  [IN.DEC]: DEC,
-  [IN.SUB]: SUB,
-  [IN.SBC]: SBC,
-  [IN.ADC]: ADC,
-  [IN.ADD]: ADD,
-  [IN.DAA]: DAA,
-  [IN.SCF]: SCF,
-  [IN.CCF]: CCF,
+export const processorMap: Record<IT, Function> = {
+  [IT.NONE]: NONE,
+  [IT.NOP]: NOP,
+  [IT.CB]: CB,
+  [IT.RLCA]: RLCA,
+  [IT.RRCA]: RRCA,
+  [IT.RLA]: RLA,
+  [IT.RRA]: RRA,
+  [IT.LD]: LD,
+  [IT.LDH]: LDH,
+  [IT.JP]: JP,
+  [IT.JR]: JR,
+  [IT.CALL]: CALL,
+  [IT.RST]: RST,
+  [IT.RET]: RET,
+  [IT.RETI]: RETI,
+  [IT.DI]: DI,
+  [IT.EI]: EI,
+  [IT.HALT]: HALT,
+  [IT.STOP]: STOP,
+  [IT.XOR]: XOR,
+  [IT.OR]: OR,
+  [IT.CPL]: CPL,
+  [IT.CP]: CP,
+  [IT.AND]: AND,
+  [IT.POP]: POP,
+  [IT.PUSH]: PUSH,
+  [IT.INC]: INC,
+  [IT.DEC]: DEC,
+  [IT.SUB]: SUB,
+  [IT.SBC]: SBC,
+  [IT.ADC]: ADC,
+  [IT.ADD]: ADD,
+  [IT.DAA]: DAA,
+  [IT.SCF]: SCF,
+  [IT.CCF]: CCF,
+
+  // useless instructions for fix type checking
+  [IT.JPHL]: NONE,
+  [IT.ERR]: NONE,
+  [IT.RLC]: NONE,
+  [IT.RRC]: NONE,
+  [IT.RL]: NONE,
+  [IT.RR]: NONE,
+  [IT.SLA]: NONE,
+  [IT.SRA]: NONE,
+  [IT.SWAP]: NONE,
+  [IT.SRL]: NONE,
+  [IT.BIT]: NONE,
+  [IT.RES]: NONE,
+  [IT.SET]: NONE,
 };
