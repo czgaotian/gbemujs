@@ -221,7 +221,7 @@ function OR(this: CPU) {
 }
 
 function CPL(this: CPU) {
-  this.registers.a = ~this.registers.a;
+  this.registers.a = ~this.registers.a & 0xff;
   this.setFlags(-1, 1, 1, -1);
 }
 
@@ -245,7 +245,19 @@ function EI(this: CPU) {
 }
 
 function HALT(this: CPU) {
-  this.halted = true;
+  const pendingInterrupts =
+    this.emulator.intEnableFlags & this.emulator.intFlags;
+
+  if (pendingInterrupts && !this.interruptMasterEnabled) {
+    // HALT bug: 如果 IME=0 但有挂起中断
+    // CPU 不会真正进入 HALT 模式，而是继续执行下一条指令
+    // 不设置 halted 标志，这样下一个 step 会正常执行
+    // HALT 指令的周期已经在 fetch 时消耗
+  } else {
+    // 正常 HALT：进入暂停模式
+    // CPU 会持续消耗周期直到有中断发生
+    this.halted = true;
+  }
 }
 
 const is16Bit = (rt: RT) => {
@@ -338,7 +350,9 @@ function checkCondition(cpu: CPU): boolean {
     case CT.NZ:
       return !flagZ;
     default:
-      return false;
+      throw new Error(
+        `Unknown condition type: ${cpu.instruction.conditionType}`
+      );
   }
 }
 
@@ -453,8 +467,8 @@ function INC(this: CPU) {
     val = this.readRegister(this.instruction.registerType1);
   }
 
-  // 检查操作码最后两位是否为 11(0x03), 如果是则不更新标志位
-  if ((this.opcode & 0x03) === 0x03) {
+  // 检查操作码低4位是否为 0x03 (16位 INC: 0x03, 0x13, 0x23, 0x33)
+  if ((this.opcode & 0x0F) === 0x03) {
     return;
   }
 
@@ -486,8 +500,8 @@ function DEC(this: CPU) {
     val = this.readRegister(this.instruction.registerType1);
   }
 
-  // 检查操作码是否匹配模式 xxxx1011(0x0B)。如果是，则直接返回不更新标志位
-  if ((this.opcode & 0x0b) === 0x0b) {
+  // 检查操作码低4位是否为 0x0B (16位 DEC: 0x0B, 0x1B, 0x2B, 0x3B)
+  if ((this.opcode & 0x0F) === 0x0B) {
     return;
   }
 
@@ -501,7 +515,7 @@ function SUB(this: CPU) {
   }
 
   const registerValue = this.readRegister(this.instruction.registerType1);
-  const val = (registerValue - this.fetchedData) & 0xffff;
+  const val = (registerValue - this.fetchedData) & 0xff;
 
   const z = val === 0;
   const h = (registerValue & 0xf) - (this.fetchedData & 0xf) < 0;

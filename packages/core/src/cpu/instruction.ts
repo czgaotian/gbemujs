@@ -251,6 +251,7 @@ export const instructionMap: Record<number, Instruction> = {
   0xd0: instruction(IN.RET, AM.IMPLIED, RT.NONE, RT.NONE, CT.NC),
   0xd1: instruction(IN.POP, AM.R, RT.DE),
   0xd2: instruction(IN.JP, AM.D16, RT.NONE, RT.NONE, CT.NC),
+  0xd3: instruction(IN.NONE, AM.IMPLIED), // 未定义操作码
   0xd4: instruction(IN.CALL, AM.D16, RT.NONE, RT.NONE, CT.NC),
   0xd5: instruction(IN.PUSH, AM.R, RT.DE),
   0xd6: instruction(IN.SUB, AM.R_D8, RT.A),
@@ -258,7 +259,9 @@ export const instructionMap: Record<number, Instruction> = {
   0xd8: instruction(IN.RET, AM.IMPLIED, RT.NONE, RT.NONE, CT.C),
   0xd9: instruction(IN.RETI),
   0xda: instruction(IN.JP, AM.D16, RT.NONE, RT.NONE, CT.C),
+  0xdb: instruction(IN.NONE, AM.IMPLIED), // 未定义操作码
   0xdc: instruction(IN.CALL, AM.D16, RT.NONE, RT.NONE, CT.C),
+  0xdd: instruction(IN.NONE, AM.IMPLIED), // 未定义操作码
   0xde: instruction(IN.SBC, AM.R_D8, RT.A),
   0xdf: instruction(IN.RST, AM.IMPLIED, RT.NONE, RT.NONE, CT.NONE, 0x18),
 

@@ -84,11 +84,23 @@ export class CPU {
         this.execute();
       }
     } else {
+      // HALT 模式：每个周期消耗 1 个 tick
       this.emulator.tick(1);
-      if (this.emulator.intEnableFlags & this.emulator.intFlags) {
+
+      const pendingInterrupts =
+        this.emulator.intEnableFlags & this.emulator.intFlags;
+
+      if (pendingInterrupts) {
+        // 有中断时退出 HALT 模式
         this.halted = false;
+
+        // HALT bug: 如果在 HALT 时 IME=0 但有挂起中断
+        // 真实硬件会继续执行下一条指令（PC 已经在 fetch 时递增）
+        // 这里不需要特殊处理，因为下个循环会正常执行
       }
     }
+
+    // 处理中断使能倒计时
     if (this.interruptMasterEnablingCountdown) {
       --this.interruptMasterEnablingCountdown;
       if (!this.interruptMasterEnablingCountdown) {
