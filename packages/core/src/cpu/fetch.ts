@@ -1,5 +1,5 @@
-import { CPU } from "./cpu";
-import { ADDRESS_MODE as AM, REGISTER_TYPE as RT } from "../types";
+import { CPU } from './cpu';
+import { ADDRESS_MODE as AM, REGISTER_TYPE as RT } from '../types';
 
 export function fetchData(this: CPU) {
   this.memoryDestination = 0;
@@ -25,7 +25,7 @@ export function fetchData(this: CPU) {
         throw new Error('Register type is required for R_R mode');
       }
 
-      this.fetchedData = this.readRegister(this.instruction.registerType2); 
+      this.fetchedData = this.readRegister(this.instruction.registerType2);
       return;
 
     case AM.R_D8:
@@ -35,20 +35,19 @@ export function fetchData(this: CPU) {
       return;
 
     case AM.R_D16:
-    case AM.D16:
-      {
-        const lo = this.emulator.busRead(this.registers.pc);
-        this.emulator.tick(1);
+    case AM.D16: {
+      const low = this.emulator.busRead(this.registers.pc);
+      this.emulator.tick(1);
 
-        const hi = this.emulator.busRead(this.registers.pc + 1);
-        this.emulator.tick(1);
+      const high = this.emulator.busRead(this.registers.pc + 1);
+      this.emulator.tick(1);
 
-        this.fetchedData = lo | (hi << 8);
+      this.fetchedData = low | (high << 8);
 
-        this.registers.pc += 2;
+      this.registers.pc += 2;
 
-        return;
-      }
+      return;
+    }
 
     case AM.MR_R:
       if (!this.instruction.registerType2 || !this.instruction.registerType1) {
@@ -56,11 +55,13 @@ export function fetchData(this: CPU) {
       }
 
       this.fetchedData = this.readRegister(this.instruction.registerType2);
-      this.memoryDestination = this.readRegister(this.instruction.registerType1);
+      this.memoryDestination = this.readRegister(
+        this.instruction.registerType1
+      );
       this.destinationIsMemory = true;
 
       if (this.instruction.registerType1 === RT.C) {
-        this.memoryDestination |= 0xFF00;
+        this.memoryDestination |= 0xff00;
       }
       return;
 
@@ -72,7 +73,7 @@ export function fetchData(this: CPU) {
       let address = this.readRegister(this.instruction.registerType2);
 
       if (this.instruction.registerType2 === RT.C) {
-        address |= 0xFF00;
+        address |= 0xff00;
       }
 
       this.fetchedData = this.emulator.busRead(address);
@@ -84,9 +85,11 @@ export function fetchData(this: CPU) {
         throw new Error('Register type is required for R_HLI mode');
       }
 
-      this.fetchedData = this.emulator.busRead(this.readRegister(this.instruction.registerType2));
+      this.fetchedData = this.emulator.busRead(
+        this.readRegister(this.instruction.registerType2)
+      );
       this.emulator.tick(1);
-      this.setRegister(RT.HL, this.readRegister(RT.HL) + 1);
+      this.setRegister(RT.HL, (this.readRegister(RT.HL) + 1) & 0xffff);
       return;
 
     case AM.R_HLD:
@@ -94,9 +97,11 @@ export function fetchData(this: CPU) {
         throw new Error('Register type is required for R_HLD mode');
       }
 
-      this.fetchedData = this.emulator.busRead(this.readRegister(this.instruction.registerType2));
+      this.fetchedData = this.emulator.busRead(
+        this.readRegister(this.instruction.registerType2)
+      );
       this.emulator.tick(1);
-      this.setRegister(RT.HL, this.readRegister(RT.HL) - 1);
+      this.setRegister(RT.HL, (this.readRegister(RT.HL) - 1) & 0xffff);
       return;
 
     case AM.HLI_R:
@@ -105,9 +110,11 @@ export function fetchData(this: CPU) {
       }
 
       this.fetchedData = this.readRegister(this.instruction.registerType2);
-      this.memoryDestination = this.readRegister(this.instruction.registerType1);
+      this.memoryDestination = this.readRegister(
+        this.instruction.registerType1
+      );
       this.destinationIsMemory = true;
-      this.setRegister(RT.HL, this.readRegister(RT.HL) + 1);
+      this.setRegister(RT.HL, (this.readRegister(RT.HL) + 1) & 0xffff);
       return;
 
     case AM.HLD_R:
@@ -116,9 +123,11 @@ export function fetchData(this: CPU) {
       }
 
       this.fetchedData = this.readRegister(this.instruction.registerType2);
-      this.memoryDestination = this.readRegister(this.instruction.registerType1);
+      this.memoryDestination = this.readRegister(
+        this.instruction.registerType1
+      );
       this.destinationIsMemory = true;
-      this.setRegister(RT.HL, this.readRegister(RT.HL) - 1);
+      this.setRegister(RT.HL, (this.readRegister(RT.HL) - 1) & 0xffff);
       return;
 
     case AM.R_A8:
@@ -128,7 +137,8 @@ export function fetchData(this: CPU) {
       return;
 
     case AM.A8_R:
-      this.memoryDestination = this.emulator.busRead(this.registers.pc) | 0xFF00;
+      this.memoryDestination =
+        this.emulator.busRead(this.registers.pc) | 0xff00;
       this.destinationIsMemory = true;
       this.emulator.tick(1);
       this.registers.pc++;
@@ -147,24 +157,23 @@ export function fetchData(this: CPU) {
       return;
 
     case AM.A16_R:
-    case AM.D16_R:
-      {
-        if (!this.instruction.registerType2) {
-          throw new Error('Register type is required for D16_R mode');
-        }
-        const lo = this.emulator.busRead(this.registers.pc);
-        this.emulator.tick(1);
-
-        const hi = this.emulator.busRead(this.registers.pc + 1);
-        this.emulator.tick(1);
-
-        this.memoryDestination = lo | (hi << 8);
-        this.destinationIsMemory = true;
-
-        this.registers.pc += 2;
-        this.fetchedData = this.readRegister(this.instruction.registerType2);
-        return;
+    case AM.D16_R: {
+      if (!this.instruction.registerType2) {
+        throw new Error('Register type is required for D16_R mode');
       }
+      const lo = this.emulator.busRead(this.registers.pc);
+      this.emulator.tick(1);
+
+      const hi = this.emulator.busRead(this.registers.pc + 1);
+      this.emulator.tick(1);
+
+      this.memoryDestination = lo | (hi << 8);
+      this.destinationIsMemory = true;
+
+      this.registers.pc += 2;
+      this.fetchedData = this.readRegister(this.instruction.registerType2);
+      return;
+    }
 
     case AM.MR_D8:
       if (!this.instruction.registerType1) {
@@ -174,7 +183,9 @@ export function fetchData(this: CPU) {
       this.fetchedData = this.emulator.busRead(this.registers.pc);
       this.emulator.tick(1);
       this.registers.pc++;
-      this.memoryDestination = this.readRegister(this.instruction.registerType1);
+      this.memoryDestination = this.readRegister(
+        this.instruction.registerType1
+      );
       this.destinationIsMemory = true;
       return;
 
@@ -183,29 +194,34 @@ export function fetchData(this: CPU) {
         throw new Error('Register type is required for MR mode');
       }
 
-      this.memoryDestination = this.readRegister(this.instruction.registerType1);
+      this.memoryDestination = this.readRegister(
+        this.instruction.registerType1
+      );
       this.destinationIsMemory = true;
-      this.fetchedData = this.emulator.busRead(this.readRegister(this.instruction.registerType1));
+      this.fetchedData = this.emulator.busRead(this.memoryDestination);
       this.emulator.tick(1);
       return;
 
-    case AM.R_A16:
-      {
-        const lo = this.emulator.busRead(this.registers.pc);
-        this.emulator.tick(1);
+    case AM.R_A16: {
+      const lo = this.emulator.busRead(this.registers.pc);
+      this.emulator.tick(1);
 
-        const hi = this.emulator.busRead(this.registers.pc + 1);
-        this.emulator.tick(1);
+      const hi = this.emulator.busRead(this.registers.pc + 1);
+      this.emulator.tick(1);
 
-        const addr = lo | (hi << 8);
+      const addr = lo | (hi << 8);
 
-        this.registers.pc += 2;
-        this.fetchedData = this.emulator.busRead(addr);
-        this.emulator.tick(1);
-        return;
-      }
+      this.registers.pc += 2;
+      this.fetchedData = this.emulator.busRead(addr);
+      this.emulator.tick(1);
+      return;
+    }
 
     default:
-      throw new Error(`Unknown Addressing Mode! ${this.instruction.addressMode} (${this.opcode.toString(16)})`);
+      throw new Error(
+        `Unknown Addressing Mode! ${
+          this.instruction.addressMode
+        } (${this.opcode.toString(16)})`
+      );
   }
 }

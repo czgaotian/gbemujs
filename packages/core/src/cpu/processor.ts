@@ -30,10 +30,8 @@ export function CB(this: CPU) {
   const bitOperation = (op >>> 6) & 0b11; // 操作类型（位测试、复位、置位或移位）
   let value = this.readRegister8Bit(reg);
 
-  this.emulator.tick(1);
-
   if (reg === RT.HL) {
-    this.emulator.tick(2);
+    this.emulator.tick(1); // (HL) 操作读取内存消耗 1 个周期
   }
 
   switch (bitOperation) {
@@ -46,12 +44,18 @@ export function CB(this: CPU) {
       // RST 位复位
       value &= ~(1 << bit);
       this.setRegister8Bit(reg, value);
+      if (reg === RT.HL) {
+        this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+      }
       return;
 
     case 3:
       // SET 位置位
       value |= 1 << bit;
       this.setRegister8Bit(reg, value);
+      if (reg === RT.HL) {
+        this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+      }
       return;
   }
 
@@ -65,6 +69,9 @@ export function CB(this: CPU) {
         const setC = !!(value & (1 << 7));
         const result = ((value << 1) & 0xff) | (setC ? 1 : 0);
         this.setRegister8Bit(reg, result);
+        if (reg === RT.HL) {
+          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+        }
         this.setFlags(result === 0, false, false, setC);
       }
       return;
@@ -75,6 +82,9 @@ export function CB(this: CPU) {
         const old = value;
         value = ((value >>> 1) & 0xff) | ((old & 1) << 7);
         this.setRegister8Bit(reg, value);
+        if (reg === RT.HL) {
+          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+        }
         this.setFlags(value === 0, false, false, !!(old & 1));
       }
       return;
@@ -85,6 +95,9 @@ export function CB(this: CPU) {
         const c = !!(value & 0x80);
         value = ((value << 1) & 0xff) | flagC;
         this.setRegister8Bit(reg, value);
+        if (reg === RT.HL) {
+          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+        }
         this.setFlags(value === 0, false, false, c);
       }
       return;
@@ -95,6 +108,9 @@ export function CB(this: CPU) {
         const c = !!(value & 1);
         value = ((value >>> 1) & 0xff) | (flagC << 7);
         this.setRegister8Bit(reg, value);
+        if (reg === RT.HL) {
+          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+        }
         this.setFlags(value === 0, false, false, c);
       }
       return;
@@ -105,6 +121,9 @@ export function CB(this: CPU) {
         const c = !!(value & 0x80);
         value = (value << 1) & 0xff;
         this.setRegister8Bit(reg, value);
+        if (reg === RT.HL) {
+          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+        }
         this.setFlags(value === 0, false, false, c);
       }
       return;
@@ -115,6 +134,9 @@ export function CB(this: CPU) {
         const c = !!(value & 1);
         value = (value & 0x80) | ((value >> 1) & 0x7f);
         this.setRegister8Bit(reg, value);
+        if (reg === RT.HL) {
+          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+        }
         this.setFlags(value === 0, false, false, c);
       }
       return;
@@ -124,6 +146,9 @@ export function CB(this: CPU) {
         // SWAP
         value = ((value & 0xf0) >>> 4) | ((value & 0xf) << 4);
         this.setRegister8Bit(reg, value);
+        if (reg === RT.HL) {
+          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+        }
         this.setFlags(value === 0, false, false, false);
       }
       return;
@@ -134,6 +159,9 @@ export function CB(this: CPU) {
         const old = value;
         value = value >>> 1;
         this.setRegister8Bit(reg, value);
+        if (reg === RT.HL) {
+          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
+        }
         this.setFlags(value === 0, false, false, !!(old & 1));
       }
       return;
@@ -257,9 +285,15 @@ export function LD(this: CPU) {
     const c = (value & 0xff) + (fetchedData & 0xff) >= 0x100;
 
     this.setFlags(0, 0, h, c);
+    this.emulator.tick(1); // LD HL, SP+r8 需要 3 个周期 (Fetch 1 + FetchData 1 + Exec 1)
     this.setRegister(registerType1, result);
 
     return;
+  }
+
+  // LD SP, HL 需要 2 个周期 (Fetch 1 + Exec 1)
+  if (registerType1 === RT.SP && registerType2 === RT.HL) {
+    this.emulator.tick(1);
   }
 
   this.setRegister(registerType1, fetchedData); // 普通寄存器加载
@@ -270,6 +304,7 @@ Load High,
 从内存的高地址区(0xFF00 到 0xFFFF)域加载数据到寄存器, 或者将寄存器的数据写入内存的高地址区域
 */
 function LDH(this: CPU) {
+  // internal cycle（CPU 执行内部计算、总线等待）
   // 如果当前指令的目标寄存器(reg_1)是寄存器 A, 则执行加载操作
   // 0xF0 LDH A, (a8)
   if (this.instruction?.registerType1 === RT.A) {
@@ -277,14 +312,14 @@ function LDH(this: CPU) {
       this.instruction?.registerType1,
       this.emulator.busRead(this.fetchedData | 0xff00)
     );
+    this.emulator.tick(1);
   }
   // 否则则执行存储操作
   // 0xE0 LDH (a8), A
   else {
     this.emulator.busWrite(this.memoryDestination, this.registers.a);
+    this.emulator.tick(1);
   }
-
-  this.emulator.tick(1);
 }
 
 function checkCondition(cpu: CPU): boolean {
@@ -398,20 +433,22 @@ function PUSH(this: CPU) {
 }
 
 function INC(this: CPU) {
-  let val = this.readRegister(this.instruction.registerType1) + 1;
-
-  if (is16Bit(this.instruction.registerType1)) {
-    this.emulator.tick(1);
-  }
+  let val: number;
 
   // 如果是对内存(HL)操作,则从总线读写数据
   if (
     this.instruction.registerType1 === RT.HL &&
     this.instruction.addressMode === AM.MR
   ) {
-    val = (this.emulator.busRead(this.readRegister(RT.HL)) + 1) & 0xff;
-    this.emulator.busWrite(this.readRegister(RT.HL), val);
+    // fetchData 已经读取了内存值并消耗了 1 个周期
+    val = (this.fetchedData + 1) & 0xff;
+    this.emulator.busWrite(this.memoryDestination, val);
+    this.emulator.tick(1); // 写回内存消耗 1 个周期
   } else {
+    val = this.readRegister(this.instruction.registerType1) + 1;
+    if (is16Bit(this.instruction.registerType1)) {
+      this.emulator.tick(1);
+    }
     this.setRegister(this.instruction.registerType1, val);
     val = this.readRegister(this.instruction.registerType1);
   }
@@ -430,20 +467,21 @@ function DEC(this: CPU) {
     throw new Error('Null instruction');
   }
 
-  // u16
-  let val = (this.readRegister(this.instruction.registerType1) - 1) & 0xffff;
-
-  if (is16Bit(this.instruction.registerType1)) {
-    this.emulator.tick(1);
-  }
+  let val: number;
 
   if (
     this.instruction.registerType1 === RT.HL &&
     this.instruction.addressMode === AM.MR
   ) {
-    val = (this.emulator.busRead(this.readRegister(RT.HL)) - 1) & 0xffff;
-    this.emulator.busWrite(this.readRegister(RT.HL), val);
+    // fetchData 已经读取了内存值并消耗了 1 个周期
+    val = (this.fetchedData - 1) & 0xff;
+    this.emulator.busWrite(this.memoryDestination, val);
+    this.emulator.tick(1); // 写回内存消耗 1 个周期
   } else {
+    val = (this.readRegister(this.instruction.registerType1) - 1) & 0xffff;
+    if (is16Bit(this.instruction.registerType1)) {
+      this.emulator.tick(1);
+    }
     this.setRegister(this.instruction.registerType1, val);
     val = this.readRegister(this.instruction.registerType1);
   }
@@ -520,6 +558,11 @@ function ADD(this: CPU) {
     val = registerValue + ((fetchedData << 24) >> 24);
   }
 
+  // ADD SP, e8 需要 4 个周期 (Fetch 1 + FetchData 1 + is16Bit 1 + SP_Internal 1)
+  if (this.instruction.registerType1 === RT.SP) {
+    this.emulator.tick(1);
+  }
+
   let z: Flag = (val & 0xff) === 0;
   let h: Flag = (registerValue & 0xf) + (fetchedData & 0xf) >= 0x10;
   let c: Flag = (registerValue & 0xff) + (fetchedData & 0xff) >= 0x100;
@@ -546,35 +589,29 @@ function STOP(this: CPU) {
 
 // 将上一步的运算结果（从寄存器A中读取）转换为BCD（binary coded decimal）码表示
 export function DAA(this: CPU) {
-  let c: 1 | -1 = -1; // 用于指示是否需要修改进位标志
-
   const registerA = this.registers.a;
   const flagC = this.registers.flagC;
   const flagN = this.registers.flagN;
   const flagH = this.registers.flagH;
 
   let result = registerA;
+  let adjust = 0;
 
   if (flagN) {
-    if (flagC) {
-      if (flagH) result += 0x9a;
-      else result += 0xa0;
-    } else {
-      if (flagH) result += 0xfa;
-    }
+    // 减法模式
+    if (flagC) adjust |= 0x60;
+    if (flagH) adjust |= 0x06;
+    result -= adjust;
   } else {
-    if (flagC || registerA > 0x99) {
-      if (flagH || (registerA & 0x0f) > 0x09) result += 0x66;
-      else result += 0x60;
-      c = 1;
-    } else {
-      if (flagH || (registerA & 0x0f) > 0x09) result += 0x06;
-    }
+    // 加法模式
+    if (flagC || registerA > 0x99) adjust |= 0x60;
+    if (flagH || (registerA & 0x0f) > 0x09) adjust |= 0x06;
+    result += adjust;
   }
 
   result = result & 0xff;
   this.registers.a = result;
-  this.setFlags(result === 0, -1, 0, c);
+  this.setFlags(result === 0, -1, 0, adjust >= 0x60 ? 1 : -1);
 }
 
 function SCF(this: CPU) {

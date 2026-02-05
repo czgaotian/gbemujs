@@ -70,7 +70,9 @@ function getWindowTile(ppu: PPU) {
   // console.log('win tile index', tileIndex.toString(16).padStart(4, '0'));
 
   if (ppu.bgwDataArea === 0x8800) {
-    tileIndex = ((tileIndex << 24) >> 24) + 128;
+    // Signed tile indexes: -128 to 127
+    // Adding 128 maps to 0-255 range (with overflow for values >127)
+    tileIndex = (tileIndex + 128) & 0xff;
   }
 
   ppu.bgwDataAddrOffset = tileIndex * 16 + (windowY % 8) * 2;
@@ -106,10 +108,10 @@ function getBackgroundTile(ppu: PPU) {
   //   }
   // console.log('x:', mapX,'y:', mapY,addr.toString(16).padStart(4, '0'), tileIndex)
   // };
-  // console.log('bg tile index', tileIndex.toString(16).padStart(4, '0'));
   if (ppu.bgwDataArea === 0x8800) {
-    // if bgwTile start at 0x8800, the index area is -128 to 127
-    tileIndex = ((tileIndex << 24) >> 24) + 128;
+    // Signed tile indexes: -128 to 127
+    // Adding 128 maps to 0-255 range
+    tileIndex = (tileIndex + 128) & 0xFF;
   }
 
   // every tile is 16 bytes, and each line is 2 bytes
@@ -129,7 +131,7 @@ function getSpriteTile(ppu: PPU) {
     // if first or last pixel of the sprite is in the tile
     if (
       (spriteX >= ppu.tileXBegin && spriteX < ppu.tileXBegin + 8) ||
-      (spriteX + 7 > ppu.tileXBegin && spriteX + 7 < ppu.tileXBegin + 8)
+      ((spriteX + 7 >= ppu.tileXBegin) && (spriteX + 7 < ppu.tileXBegin + 8))
     ) {
       ppu.fetchedSprites[ppu.numFetchedSprites] = sprite;
       ppu.numFetchedSprites += 1;
@@ -144,11 +146,12 @@ function getSpriteTile(ppu: PPU) {
 function getSpriteData(ppu: PPU, dataIndex: number) {
   const spriteHeight = ppu.objHeight;
 
-  ppu.fetchedSprites.forEach((sprite, index) => {
+  for (let i = 0; i < ppu.numFetchedSprites; i++) {
+    const sprite = ppu.fetchedSprites[i];
     let ty = ppu.ly + 16 - sprite.y;
 
     if (sprite.yFlip) {
-      ty = spriteHeight - ty - 1;
+      ty = (spriteHeight - 1) - ty;
     }
 
     let tile = sprite.tile;
@@ -157,10 +160,10 @@ function getSpriteData(ppu: PPU, dataIndex: number) {
       tile &= 0xfe;
     }
 
-    ppu.spriteFetchedData[index * 2 + dataIndex] = ppu.emulator.busRead(
+    ppu.spriteFetchedData[i * 2 + dataIndex] = ppu.emulator.busRead(
       0x8000 + tile * 16 + ty * 2 + dataIndex
     );
-  });
+  }
 }
 
 function pushBgwPixels(ppu: PPU) {

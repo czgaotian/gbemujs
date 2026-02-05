@@ -69,7 +69,6 @@ export class CPU {
         const pc = this.registers.pc;
 
         this.fetchInstruction();
-        this.emulator.tick(1);
         this.fetchData();
 
         // debug(pc, this);
@@ -102,8 +101,11 @@ export class CPU {
 
   private fetchInstruction(): void {
     this.opcode = this.emulator.busRead(this.registers.pc);
+    // fetch opcode 1 cycle
+    this.emulator.tick(1);
     this.registers.pc++;
     this.instruction = instructionMap[this.opcode];
+
     if (!this.instruction) {
       throw new Error(
         `Instruction not found for opcode: 0x${this.opcode.toString(16)}`
