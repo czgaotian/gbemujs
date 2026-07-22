@@ -1,0 +1,499 @@
+定时器
+定时器（Timer）是SoC中内置的一个简单的电路，其会在每一次时钟信号的时候增加内部计数器的值。由于时钟信号具有一个固定的频率，因此我们只需要读取连续两次计数器值，并进行相减就可以转换为实际的时间差。同时，定时器还提供基于中断的定时功能，我们可以设定一个期望的倒计时，并启动定时器，在定时器时间到的时候，定时器会触发TIMER中断来提示程序。
+
+定时器的行为由以下几个寄存器控制：
+
+0xFF04 - DIV （Divider）
+DIV寄存器是一个16位寄存器，但只有其高8位可以通过0xFF04总线地址读取，而低8位只能在计时器内部使用，不可以被外部访问。DIV寄存器的值会在每一个时钟周期加1，如果值溢出，则会自动归零。由于DIV寄存器只有高8位可以访问，因此读取0xFF04时，可以认为该值的自增频率是16384Hz（4194304/256）。对0xFF04地址的任何写入操作都会将该寄存器的值重置为0（包括全部的16位）。
+
+由于DIV的寄存器长度较短，其最多只能记录1/64秒的时间长度，因此在大部分情况下，我们都不会直接使用DIV寄存器的值，而是用DIV寄存器的变化驱动下面所述的定时器数值变化，然后再使用定时器功能来计时。
+
+0xFF05 - TIMA （Timer Counter）
+TIMA寄存器是一个8位寄存器，在定时器功能启动时，其保存了当前定时器的时间值，并会随着DIV寄存器的变化，按照定制器控制寄存器中选择的规则增加值。当TIMA寄存器的值溢出（超过0xFF）时，其会触发TIMER中断。
+
+0xFF06 - TMA （Timer Modulo）
+TMA寄存器是一个8位寄存器，当TIMA寄存器溢出并触发中断后，其会被重置为TMA的所指定的值。显然，TMA的值越大，代表设置的定时时间越短。实际的定时时间可以按照以下公式计算：
+
+
+其中 
+ 代表两次TIMA值增加之间的时间间隔。
+
+0xFF07 - TAC（Timer Control）
+该寄存器用于控制计时器的行为，其每个位的含义如下：
+
+7	6	5	4	3	2	1	0
+-	-	-	-	-	启动	时钟选择1	时钟选择0
+启动：该标志位设置是否启动计时器。如果该值为0，则计时器被禁用，TIMA停止更新，也不会产生中断。
+时钟选择：此处的两个比特位用于设置TIMA更新的频率，每个值的含义如下：
+0（00b）：4096Hz（当DIV的位9从1变为0增加TIMA）
+1（01b）：262144Hz（当DIV的位3从1变为0时增加TIMA）
+2（10b）：65536Hz（当DIV的位5从1变为0时增加TIMA）
+3（11b）：16384Hz（当DIV的位7从1变为0时增加TIMA）
+上述所有的位均从0开始计算。
+
+实现定时器
+在了解了定时器的工作机制后，我们便可以实现定时器。首先新建Timer.hpp和Timer.cpp来保存我们的定时器代码，Timer.hpp内容如下：
+
+#pragma once
+#include <Luna/Runtime/MemoryUtils.hpp>
+using namespace Luna;
+
+struct Emulator;
+struct Timer
+{
+    //! 0xFF04
+    //! Only the high 8-bit is accessible via bus, thus behaves like incrementing at 16384Hz (once per 256 clock cycles).
+    //! Writing any value to this resets the value to 0.
+    u16 div;
+    //! 0xFF05 Timer counter
+    //! Triggers a INT_TIMER when overflows (exceeds 0xFF).
+    u8 tima;
+    //! 0xFF06 Timer modulo
+    //! The value to reset TIMA to if overflows.
+    u8 tma;
+    //! 0xFF07 Timer control
+    u8 tac;
+
+    u8 read_div() const
+    {
+        return (u8)(div >> 8);
+    }
+    u8 clock_select() const { return tac & 0x03; }
+    bool tima_enabled() const { return bit_test(&tac, 2); }
+
+    void init()
+    {
+        div = 0xAC00;
+        tima = 0;
+        tma = 0;
+        tac = 0xF8;
+    }
+    void tick(Emulator* emu);
+    u8 bus_read(u16 addr);
+    void bus_write(u16 addr, u8 data);
+};
+我们首先定义了所有寄存器对应的变量，然后编写了几个辅助函数来帮助我们从寄存器中获取不同的值，例如read_div用于读取0xFF04的值（即DIV寄存器的高8位）、clock_select返回选择的时钟的序号、tima_enabled用于返回当前定时器是否启动。init函数用于初始化定时器的状态；tick函数在每个时钟周期调用一次，用于更新定时器的内部状态；bus_read和bus_write函数则是用于将定时器相关的寄存器接到总线上。
+
+Timer.cpp内容如下：
+
+#include "Timer.hpp"
+#include "Emulator.hpp"
+
+void Timer::tick(Emulator* emu)
+{
+    // Increase DIV.
+    u16 prev_div = div;
+    ++div;
+    if(tima_enabled())
+    {
+        // Check whether we need to increase TIMA in this tick.
+        bool tima_update = false;
+        switch(clock_select())
+        {
+            case 0:
+                tima_update = (prev_div & (1 << 9)) && (!(div & (1 << 9)));
+                break;
+            case 1:
+                tima_update = (prev_div & (1 << 3)) && (!(div & (1 << 3)));
+                break;
+            case 2:
+                tima_update = (prev_div & (1 << 5)) && (!(div & (1 << 5)));
+                break;
+            case 3:
+                tima_update = (prev_div & (1 << 7)) && (!(div & (1 << 7)));
+                break;
+        }
+        if (tima_update) 
+        {
+            if (tima == 0xFF) 
+            {
+                emu->int_flags |= INT_TIMER;
+                tima = tma;
+            }
+            else
+            {
+                tima++;
+            }
+        }
+    }
+}
+u8 Timer::bus_read(u16 addr)
+{
+    luassert(addr >= 0xFF04 && addr <= 0xFF07);
+    if(addr == 0xFF04) return read_div();
+    if(addr == 0xFF05) return tima;
+    if(addr == 0xFF06) return tma;
+    if(addr == 0xFF07) return tac;
+}
+void Timer::bus_write(u16 addr, u8 data)
+{
+    luassert(addr >= 0xFF04 && addr <= 0xFF07);
+    if(addr == 0xFF04)
+    {
+        div = 0;
+        return;
+    }
+    if(addr == 0xFF05)
+    {
+        tima = data;
+        return;
+    }
+    if(addr == 0xFF06)
+    {
+        tma = data;
+        return;
+    }
+    if(addr == 0xFF07)
+    {
+        tac = 0xF8 | (data & 0x07);
+        return;
+    }
+}
+在定时器状态更新的时候，我们首先将div寄存器的值自增1，接着在定时功能打开的情况下，我们根据选择的时钟，检查定时器的3、5、7、9位是否产生了下降信号（值从1变为0），并在条件符合时增加TIMA的值，最后，当TIMA值溢出时，我们将其重置为TMA，并请求TIMER中断。
+
+最后，我们将定时器接入模拟器。在Emulator.hpp中添加定时器：
+
+#pragma once
+#include <Luna/Runtime/Result.hpp>
+#include "CPU.hpp"
+#include "Timer.hpp"
+using namespace Luna;
+
+constexpr u8 INT_VBLANK = 1;
+constexpr u8 INT_LCD_STAT = 2;
+constexpr u8 INT_TIMER = 4;
+constexpr u8 INT_SERIAL = 8;
+constexpr u8 INT_JOYPAD = 16;
+
+struct Emulator
+{
+    /*...*/
+    //! 0xFFFF - The interruption enabling flags.
+    u8 int_enable_flags;
+
+    Timer timer;
+    RV init(const void* cartridge_data, usize cartridge_data_size);
+    /*...*/
+};
+然后在Emulator.cpp相应的位置调用计时器的相关函数：
+
+#include "Emulator.hpp"
+#include "Cartridge.hpp"
+#include <Luna/Runtime/Log.hpp>
+
+RV Emulator::init(const void* cartridge_data, usize cartridge_data_size)
+{
+    /*...*/
+    int_enable_flags = 0;
+    timer.init();
+    return ok;
+}
+/*...*/
+void Emulator::tick(u32 mcycles)
+{
+    u32 tick_cycles = mcycles * 4;
+    for(u32 i = 0; i < tick_cycles; ++i)
+    {
+        ++clock_cycles;
+        timer.tick(this);
+    }
+}
+/*...*/
+u8 Emulator::bus_read(u16 addr)
+{
+    /*...*/
+    if(addr <= 0xDFFF)
+    {
+        // Working RAM.
+        return wram[addr - 0xC000];
+    }
+    if(addr >= 0xFF04 && addr <= 0xFF07)
+    {
+        return timer.bus_read(addr);
+    }
+    if(addr == 0xFF0F)
+    {
+        // IF
+        return int_flags | 0xE0;
+    }
+    /*...*/
+    return 0xFF;
+}
+void Emulator::bus_write(u16 addr, u8 data)
+{
+    /*...*/
+    if(addr <= 0xDFFF)
+    {
+        // Working RAM.
+        wram[addr - 0xC000] = data;
+        return;
+    }
+    if(addr >= 0xFF04 && addr <= 0xFF07)
+    {
+        timer.bus_write(addr, data);
+        return;
+    }
+    if(addr == 0xFF0F)
+    {
+        // IF
+        int_flags = data & 0x1F;
+        return;
+    }
+    /*...*/
+}
+至此我们就完成了定时器组件的实现和接入。
+
+串口
+串口（serial）用于在GameBoy主机和其它设备之间通信，从而实现联机游戏的功能。这里的其它设备既可以是别的GameBoy主机，也可以是电脑等设备，这些设备通过一根专用的数据线连接到GameBoy的串口接口上。在互联网还没有完全普及的年代，串口是GameBoy与外界通信的唯一渠道。
+
+GameBoy的串口通信协议较为简单，其连接不需要进行握手，也没有任何连接状态，只需要将待传输的数据写入串口数据寄存器，然后启动传输即可。GameBoy的每一次传输只能发送和接收一个字节的数据，因此如果需要发送多字节的数据，则需要启动多次连接，然后逐一发送。GameBoy的串口协议本身不保证数据的完整性和有效性，也无法校验串口的连接状态，其甚至允许在串口未连接任何设备时启动传输，在这种情况下，输出的数据会被丢弃，而读取到的数据始终为0xFF。
+
+GameBoy的串口协议为非对称协议，也就是说，在连接的时候，有一方扮演主机（master GameBoy）的角色，而另一方则扮演从机（slave GameBoy）的角色。在数据传输时，主机负责提供串口的时钟信号，并能够主动发起传输，而从机的串口使用主机的时钟信号，并且无法主动发起传输，只能将需要传输的数据写入串口数据寄存器，然后等待主机发起传输来发送数据。串口的时钟频率决定了串口传输数据的速度，在每一个时钟周期中，串口能够传输1bit的信号，当GameBoy作为主机通信时，单色GameBoy的串口时钟频率固定为8192Hz，因此其传输速度为1KB/s；当GameBoy作为从机通信时，串口所使用的时钟频率取决于外部设备，且不一定与主机的串口时钟频率相等。根据测试，当作为从机通信时，GameBoy能够支持高达500kHz的时钟频率，并且理论上没有最低时钟频率限制（有人测试了串口在1个月更新一次的时钟频率下仍然能正常工作）。
+
+在本专题中，我们将不会真的实现GameBoy的联机功能，因此我们假定在游戏运行时，串口一直保持断开状态（写入串口的数据被丢弃、读取串口的数据永远返回0xFF）。同时，为了方便在之后的小节中查看CPU单元测试ROM的输出，我们会使用一个字节数组来保存从GameBoy中输出的串口数据，并且在之后的调试面板中显示这些数据。
+
+0xFF01 - SB（Serial Byte）
+该寄存器保存串口传输的数据。在传输开始前，该寄存器保存需要发送至串口的数据；在传输结束后，该寄存器保存从串口接收的数据；而在传输进行时，该寄存器的数据是发送数据和接收数据的混合体。当传输进行时，在每一个串口的时钟周期下，SB寄存器中的最高位会被通过串口发送，同时整个寄存器的数据左移一位，并且最低位设置成从串口接收到的数据，如下表所示：
+
+7	6	5	4	3	2	1	0
+o.7	o.6	o.5	o.4	o.3	o.2	o.1	o.0
+o.6	o.5	o.4	o.3	o.2	o.1	o.0	i.7
+o.5	o.4	o.3	o.2	o.1	o.0	i.7	i.6
+o.4	o.3	o.2	o.1	o.0	i.7	i.6	i.5
+o.3	o.2	o.1	o.0	i.7	i.6	i.5	i.4
+o.2	o.1	o.0	i.7	i.6	i.5	i.4	i.3
+o.1	o.0	i.7	i.6	i.5	i.4	i.3	i.2
+o.0	i.7	i.6	i.5	i.4	i.3	i.2	i.1
+i.7	i.6	i.5	i.4	i.3	i.2	i.1	i.0
+0xFF02 - SC（Serial Control）
+该寄存器控制串口的行为，每个位的含义如下：
+
+7	6	5	4	3	2	1	0
+启动传输	-	-	-	-	-	-	时钟选择
+时钟选择：该位控制串口传输使用的时钟，设置为1则使用本机时钟，同时本机会作为主机；设置为0则使用外部时钟，同时本机会作为从机。
+
+启动传输：
+
+当时钟选择为1时，设置该位为1会启动数据传输。每一次数据传输会传输1比特的数据，通过SB寄存器指定，在传输结束以后，该位会自动置0，同时请求SERIAL中断。
+当时钟选择位0时，设置该位为1不起作用，因为传输由主机发起和控制。但是如果本机将该位设置成了1，在传输结束以后，该位会自动置0。
+当时钟选择位为1时，GameBoy传输数据的流程如下：
+
+将待传输的数据写入SB寄存器
+将SC.7设置为1
+传输结束时，总线控制器会将SC.7重置为0，同时请求SERIAL中断
+在中断处理函数中读取SB寄存器，然后在SB寄存器中写入下一字节要传输的数据。
+重复上述流程。
+当时钟选择位为0时，GameBoy传输数据的流程如下：
+
+将待传输的数据写入SB寄存器
+可以选择将SC.7设置为1，无论是否设置都不影响实际的传输。
+主机（另一台GameBoy）启动传输
+传输结束时，总线控制器会将SC.7重置为0，同时请求SERIAL中断
+在中断处理函数中读取SB寄存器，然后在SB寄存器中写入下一字节要传输的数据。
+重复上述流程。
+实现串口
+由于我们的实现不会往GameBoy中传输任何数据，因此我们在实现时只需要考虑GameBoy的时钟选择位为1的情况（即GameBoy主动发送数据的情况）。首先新建Serial.hpp和Serial.cpp来保存我们的串口代码，Serial.hpp内容如下：
+
+#pragma once
+#include <Luna/Runtime/RingDeque.hpp>
+using namespace Luna;
+
+struct Emulator;
+struct Serial
+{
+    //! 0xFF01 Serial transfer data.
+    u8 sb;
+    //! 0xFF02 Serial transfer control.
+    u8 sc;
+
+    // Serial internal data.
+    
+    // Whether data transferring is in progress.
+    bool transferring;
+
+    // GameBoy serial output will be placed in this buffer.
+    RingDeque<u8> output_buffer;
+
+    // The current transfer out byte.
+    u8 out_byte;
+    // The transferring bit index (7 to 0).
+    i8 transfer_bit;
+    
+    bool is_master() const { return bit_test(&sc, 0); }
+    bool transfer_enable() const { return bit_test(&sc, 7); }
+
+    void begin_transfer();
+    void process_transfer(Emulator* emu);
+    void end_transfer(Emulator* emu);
+
+    void init()
+    {
+        sb = 0xFF;
+        sc = 0x7C;
+        transferring = false;
+    }
+    void tick(Emulator* emu);
+    u8 bus_read(u16 addr);
+    void bus_write(u16 addr, u8 data);
+};
+我们首先为SB和SC寄存器分配了对应的变量，然后定义了一系列变量用于表示当前的串口状态。is_master函数返回本机是否为主机（即SC.0是否为1），transfer_enable函数返回当前是否启动传输（即SC.7是否为1））。begin_transfer、process_transfer和end_transfer则用于启动、执行和结束传输。
+
+Serial.cpp内容如下：
+
+#include "Serial.hpp"
+#include "Emulator.hpp"
+
+void Serial::begin_transfer()
+{
+    transferring = true;
+    out_byte = sb;
+    transfer_bit = 7;
+}
+void Serial::process_transfer(Emulator* emu)
+{
+    sb <<= 1;
+    // Set lowest bit to 1.
+    ++sb;
+    --transfer_bit;
+    if(transfer_bit < 0)
+    {
+        transfer_bit = 0;
+        end_transfer(emu);
+    }
+}
+void Serial::end_transfer(Emulator* emu)
+{
+    output_buffer.push_back(out_byte);
+    bit_reset(&sc, 7);
+    transferring = false;
+    emu->int_flags |= INT_SERIAL;
+}
+void Serial::tick(Emulator* emu)
+{
+    if(!transferring && transfer_enable() && is_master())
+    {
+        begin_transfer();
+    }
+    else if(transferring)
+    {
+        process_transfer(emu);
+    }
+}
+u8 Serial::bus_read(u16 addr)
+{
+    luassert(addr >= 0xFF01 && addr <= 0xFF02);
+    if(addr == 0xFF01) return sb;
+    if(addr == 0xFF02) return sc;
+}
+void Serial::bus_write(u16 addr, u8 data)
+{
+    luassert(addr >= 0xFF01 && addr <= 0xFF02);
+    if(addr == 0xFF01)
+    {
+        sb = data;
+        return;
+    }
+    if(addr == 0xFF02)
+    {
+        sc = 0x7C | (data & 0x83);
+        return;
+    }
+}
+串口组件的更新入口是tick函数。当串口组件更新时，其首先检查当前是否需要启动传输，如果当前设备为主机，且设置了SC.7，则我们调用begin_transfer启动传输。begin_transfer会将transferring标志位设置为true，加载我们需要传输的数据至out_byte变量，然后将transfer_bit设置为7，表示我们下一个传输的比特位是7。
+
+当我们处在传输状态（transferring为true）时，tick函数调用process_transfer函数执行一次传输。process_transfer函数会将SC的数值左移一位，同时最低位设置为1，因为我们的实现只考虑断开串口的情况，而在断开串口的情况下，读取串口的值永远返回1。然后我们将transfer_bit减去1，表示下一个需要传输的比特位。process_transfer会被多次调用，直到transfer_bit的值小于0。当transfer_bit的值小于0时，表示我们已经传输完了所有的比特位，此时我们需要调用end_transfer结束传输，该函数将之前加载的out_byte变量放入output_buffer字节FIFO队列中，然后重置SC.7和transferring，并请求CPU的SERIAL中断。
+
+最后我们修改Emulator.hpp和Emulator.cpp，将串口接入模拟器。Emulator.hpp修改如下：
+
+#pragma once
+#include <Luna/Runtime/Result.hpp>
+#include "CPU.hpp"
+#include "Timer.hpp"
+#include "Serial.hpp"
+using namespace Luna;
+
+constexpr u8 INT_VBLANK = 1;
+constexpr u8 INT_LCD_STAT = 2;
+constexpr u8 INT_TIMER = 4;
+constexpr u8 INT_SERIAL = 8;
+constexpr u8 INT_JOYPAD = 16;
+
+struct Emulator
+{
+    /*...*/
+    Timer timer;
+    Serial serial;
+    /*...*/
+};
+Emulator.cpp修改如下：
+
+#include "Emulator.hpp"
+#include "Cartridge.hpp"
+#include <Luna/Runtime/Log.hpp>
+
+RV Emulator::init(const void* cartridge_data, usize cartridge_data_size)
+{
+    /*...*/
+    timer.init();
+    serial.init();
+    return ok;
+}
+/*...*/
+void Emulator::tick(u32 mcycles)
+{
+    u32 tick_cycles = mcycles * 4;
+    for(u32 i = 0; i < tick_cycles; ++i)
+    {
+        ++clock_cycles;
+        timer.tick(this);
+        if((clock_cycles % 512) == 0)
+        {
+            // Serial is ticked at 8192Hz.
+            serial.tick(this);
+        }
+    }
+}
+/*...*/
+u8 Emulator::bus_read(u16 addr)
+{
+    /*...*/
+    if(addr <= 0xDFFF)
+    {
+        // Working RAM.
+        return wram[addr - 0xC000];
+    }
+    if(addr >= 0xFF01 && addr <= 0xFF02)
+    {
+        return serial.bus_read(addr);
+    }
+    if(addr >= 0xFF04 && addr <= 0xFF07)
+    {
+        return timer.bus_read(addr);
+    }
+    /*...*/
+    return 0xFF;
+}
+void Emulator::bus_write(u16 addr, u8 data)
+{
+    /*...*/
+    if(addr <= 0xDFFF)
+    {
+        // Working RAM.
+        wram[addr - 0xC000] = data;
+        return;
+    }
+    if(addr >= 0xFF01 && addr <= 0xFF02)
+    {
+        serial.bus_write(addr, data);
+        return;
+    }
+    if(addr >= 0xFF04 && addr <= 0xFF07)
+    {
+        timer.bus_write(addr, data);
+        return;
+    }
+    /*...*/
+    return;
+}
+至此我们就完成了串口组件的实现和接入。
+

@@ -1,0 +1,446 @@
+CPU
+大部分的中央处理单元（CPU）都遵循类似的架构设计，因此此处的CPU原理介绍也可以引用在分析别的CPU的核心结构上。
+
+寄存器
+寄存器（register）是内嵌在CPU中的数据存储单元，用于存储CPU在运行过程中的临时数据。GameBoy CPU的寄存器包括A、F、B、C、D、E、H、L，一共8个8位寄存器，以及PC和SP两个16位寄存器。同时，在某些指令中，8个8位寄存器可以当成4个16位寄存器（AF、BC、DE、HL）使用。在8位寄存器中，F（flags）寄存器主要用于存储CPU指令产生的各种标志位（例如进位标志位、减法标志位等），不能直接写入数据，而其余的寄存器都可以通过LD指令直接写入数据。
+
+并不是所有的寄存器都具有相同的功能。某些寄存器具有特殊的含义，例如：
+
+A寄存器被定义为累加器（accumulator），几乎所有的数学计算都只能针对A寄存器里的数据进行。
+H（high）和L（low）寄存器用于存储一个16位地址的高8位和低8位，这两个寄存器用于在总线读写指令中提供地址，而别的大部分寄存器不能直接存储地址用于读写。
+PC（program counter）寄存器存储CPU下一条要执行的指令的总线地址，CPU使用该地址从内存中读取指令，并会在执行指令时自动增加该寄存器的值。该寄存器的值无法直接修改，需要使用JP、JR等专门的跳转指令进行跳转。
+SP（stack pointer）寄存器存储当前的函数调用栈的栈顶的内存地址，并会在call、ret指令或者触发中断时被CPU自动操作。
+F（flags）寄存器用于存储CPU在运行过程中产生的各种位，其只有高位的4个比特有效，低位的4个比特永远是0。高位的四个比特对应的标志位分别为：
+
+比特7：Z标志位（zero flag），当运算结果为0时设置为1，否则设置为0。
+比特6：N标志位（negative flag），当运算为减法时设置为1，否则设置为0。
+比特5：H标志位（half-carry flag），当运算出现了比特3与比特4之间的进位或退位时设置为1，否则设置为0。
+比特4：C标志位（carry flag），当运算出现了向上或者向下溢出时设置为1，否则设置为0。
+上述比特均从最低位为0开始计数。
+
+执行流程
+如上文所述，GameBoy的CPU每四个时钟周期（或者一个机器周期）更新一次。为了执行一条指令，CPU需要完成两个步骤：
+
+获取指令
+执行指令
+在获取指令阶段，CPU会读取PC寄存器的值，并通过总线读取指令获取该地址下存储的操作码数据，最后将PC寄存器的值加1并写回。所有对于总线的读写操作在一个机器周期内最多只会进行一次，因此获取指令阶段花费一个机器周期。GameBoy所使用基于ZiLOG Z80定制的CPU是一个8位的CPU，这意味着其每一个指令的操作码长度均为1个字节（8位），且其数据引脚的宽度为8位，即该CPU可以在一个机器周期内一次性读写8位的内存数据。
+
+在执行阶段，CPU会对读取到的操作码进行译码，并执行操作码对应的指令。如果对应的操作需要操作16位数据，或者需要对总线进行读写，则通常该操作需要额外的机器周期来完成，因此执行阶段视具体的指令不同，需要花费1至多个机器周期不等。
+
+GameBoy的CPU采用了流水线设计，下一个指令的获取阶段可以和当前指令的执行阶段并行运行，因此在实际表现上，我们可以认为一个指令只在执行阶段花费时间，并以一个指令在执行阶段的耗时来作为指令的时间开销。此处的例外是跳转指令，由于跳转指令会导致流水线停顿（因为PC值的改变会导致从原先的PC+1地址读取的指令无效），因此在发生跳转以后的下一个指令需要重新执行获取+执行的整个流程。在这种情况下，我们将额外产生的1个机器周期的开销添加到跳转指令中，因此跳转指令是否真正执行跳转会影响该指令时间开销。
+
+实现时钟
+在了解了本章节的基础概念以后，就让我们进入到实际的编程中吧。首先，我们需要在模拟器中添加一个稳定的时钟信号，并在每一帧根据帧时间来更新时钟，确保模拟器的各个元件能够按照时钟信号进行更新。首先，我们需要测量每一帧花费的时间，因此我们在App类中加入一个新的变量来保存上一帧的时间：
+
+u64 last_frame_ticks;
+然后在App::update函数中加入测量时间的代码，修改的部分已使用粗体标出：
+
+#include <Luna/Runtime/Time.hpp>
+
+RV App::update()
+{
+    lutry
+    {
+        // Update window events.
+        Window::poll_events();
+        // Exit the program if the window is closed.
+        if (window->is_closed())
+        {
+            is_exiting = true;
+            return ok;
+        }
+        u64 ticks = get_ticks();
+        u64 delta_ticks = ticks - last_frame_ticks;
+        f64 delta_time = (f64)delta_ticks / get_ticks_per_second();
+        delta_time = min(delta_time, 0.125);
+        if(emulator)
+        {
+            emulator->update(delta_time);
+        }
+        last_frame_ticks = ticks;
+        // Draw GUI.
+        draw_gui();
+        /*...*/
+    }
+    lucatchret;
+    return ok;
+}
+get_ticks()函数会返回当前操作系统的高精度时钟的当前数值，该数值使用64位无符号整数表示，从系统启动开始递增，通常具有纳秒级的精度。get_ticks_per_second()返回高精度时钟的频率，即一秒钟递增多少次，我们通过将两帧之间的时钟数值差除以时钟频率就可以获得按秒表示的帧时间。需要注意的是该时间值需要使用64位浮点表示，而非32位，不然浮点数的精度误差会显著影响时间的计算结果。
+
+在获取了帧时间以后，我们便可以通过帧时间来更新模拟器。在Emulator类中添加如下变量和函数：
+
+//! `true` if the emulation is paused.
+bool paused = false;
+//! The cycles counter.
+u64 clock_cycles = 0;
+//! The clock speed scale value.
+f32 clock_speed_scale = 1.0;
+void update(f64 delta_time);
+//! Advances clock and updates all hardware states (except CPU).
+//! This is called from CPU instructions.
+//! @param[in] mcycles The number of machine cycles to tick.
+void tick(u32 mcycles);
+其中：
+
+paused变量表示了当前的模拟器是否被暂停，我们添加这一功能，以便在某些时刻可以停止CPU的运行进行调试操作。
+clock_cycles变量记录了当前模拟器累计运行的时钟周期数，我们可以用该计数器来确定何时更新GameBoy的各个组件。
+clock_speed_scale可以用于缩放模拟器的更新速度，以在必要时候放慢模拟器的模拟速度来观察中间过程。
+update函数每帧调用一次，其接受一个delta_time参数，该参数指定了上一渲染帧所花费的时间，以用于计算我们在这一帧中需要模拟的时钟周期数。
+tick函数用于步进模拟器中除CPU外各个组件的状态，同时增加clock_cycles计数器的值。tick函数接受一个mcycles参数，该参数指定了tick函数需要步进的机器周期个数。
+然后我们在Emulator.cpp中实现模拟器的update函数和tick函数：
+
+void Emulator::update(f64 delta_time)
+{
+    u64 frame_cycles = (u64)((f32)(4194304.0 * delta_time) * clock_speed_scale);
+    u64 end_cycles = clock_cycles + frame_cycles;
+    while(clock_cycles < end_cycles)
+    {
+        /*TODO: step emulator and advance clock_cycles*/
+    }
+}
+void Emulator::tick(u32 mcycles)
+{
+    u32 tick_cycles = mcycles * 4;
+    for(u32 i = 0; i < tick_cycles; ++i)
+    {
+        ++clock_cycles;
+    }
+}
+在Emulator::update函数中，我们首先使用delta_time乘以4194304来计算当前帧需要步进的时钟次数，然后乘以clock_speed_scale来缩放时钟的频率。然后，我们计算end_cycles，其表示该帧结束时clock_cycles计数器应该到达的值。最后，我们使用一个条件循环，如果当前clock_cycles计数器的值小于end_cycles，我们便可以反复步进模拟器，直到clock_cycles达到end_cycles，完成该帧的模拟器更新。在循环步进模拟器时，实现代码会调用Emulator::tick来增加clock_cycles计数器的值，并更新时钟、PPU、APU等各个组件的状态若干次，以实现各个组件之间的时序同步。在现阶段，我们只需要在Emulator::tick中对clock_cycles计数器进行更新，而对于模拟器其余组件的更新，我们将会在之后实现各个组件时将代码添加到该函数中。
+
+实现CPU
+新建两个新的文件：CPU.hpp和CPU.cpp来存放CPU相关的代码。CPU.hpp的代码如下：
+
+#pragma once
+#include <Luna/Runtime/Base.hpp>
+using namespace Luna;
+
+struct Emulator;
+struct CPU
+{
+    //! A register.
+    u8 a;
+    //! F register.
+    u8 f;
+    //! B register.
+    u8 b;
+    //! C register.
+    u8 c;
+    //! D register.
+    u8 d;
+    //! E register.
+    u8 e;
+    //! H register.
+    u8 h;
+    //! L register.
+    u8 l;
+    //! SP register (Stack Pointer).
+    u16 sp;
+    //! PC register (Program Counter/Pointer).
+    u16 pc;
+    //! CPU is halted;
+    bool halted;
+
+    u16 af() const { return (((u16)a) << 8) + (u16)f; }
+    u16 bc() const { return (((u16)b) << 8) + (u16)c; }
+    u16 de() const { return (((u16)d) << 8) + (u16)e; }
+    u16 hl() const { return (((u16)h) << 8) + (u16)l; }
+    void af(u16 v) { a = (u8)(v >> 8); f = (u8)(v & 0xF0); } // The lower 4 bits of F should always be 0.
+    void bc(u16 v) { b = (u8)(v >> 8); c = (u8)(v & 0xFF); }
+    void de(u16 v) { d = (u8)(v >> 8); e = (u8)(v & 0xFF); }
+    void hl(u16 v) { h = (u8)(v >> 8); l = (u8)(v & 0xFF); }
+
+    bool fz() const { return (f & 0x80) != 0; }
+    bool fn() const { return (f & 0x40) != 0; }
+    bool fh() const { return (f & 0x20) != 0; }
+    bool fc() const { return (f & 0x10) != 0; }
+    void set_fz() { f |= 0x80; }
+    void reset_fz() { f &= 0x7F; }
+    void set_fn() { f |= 0x40; }
+    void reset_fn() { f &= 0xBF; }
+    void set_fh() { f |= 0x20; }
+    void reset_fh() { f &= 0xDF; }
+    void set_fc() { f |= 0x10; }
+    void reset_fc() { f &= 0xEF; }
+
+    void init();
+    void step(Emulator* emu);
+};
+我们创建了一个CPU类型来存储所有CPU相关的状态。在类中，我们为每个寄存器定义了一个变量，这样就可以通过变量存储各个寄存器的值，然后我们还定义了一系列方法，方便后续读写由两个8位寄存器合并成的16位寄存器的值。同时，我们也为F寄存器的每一个标志位定义了各自的读取和设置函数。halted用于判断当前CPU是否通过HALT指令进入了挂起模式，在挂起模式下，我们需要直接跳过CPU的执行。
+
+CPU.cpp代码如下：
+
+#include "CPU.hpp"
+#include "Emulator.hpp"
+void CPU::init()
+{
+    // ref: https://github.com/rockytriton/LLD_gbemu/raw/main/docs/The%20Cycle-Accurate%20Game%20Boy%20Docs.pdf
+    af(0x01B0);
+    bc(0x0013);
+    de(0x00D8);
+    hl(0x014D);
+    sp = 0xFFFE;
+    pc = 0x0100;
+    halted = false;
+}
+void CPU::step(Emulator* emu)
+{
+    if(!halted)
+    {
+        // fetch opcode.
+        u8 opcode = emu->bus_read(pc);
+        // increase counter.
+        ++pc;
+        // execute opcode.
+        // TODO...
+    }
+    else
+    {
+        emu->tick(1);
+    }
+}
+在CPU::init中，我们初始化了CPU的各个寄存器的值。GameBoy的每个寄存器都有一个特定的值，这些值根据设备的不同而不同，此处我们使用的是初版GameBoy（DMG）中的寄存器初始值。CPU::step负责步进一次CPU，即执行一条CPU指令。根据上文的描述，当CPU没有被暂停时，其首先通过bus_read来调起总线读取PC寄存器指向的地址的值，然后将PC寄存器的值增加1，随后根据操作码来执行对应的操作；而当CPU被暂停时，我们仍然需要调用Emulator::tick(1)来步进一次模拟器，以便其余组件能够更新状态，并在合适的时候通过触发中断来唤醒CPU。
+
+接下来我们需要实现CPU的执行指令部分。我们使用一个256个元素的函数数组来表示CPU的所有指令，每一个指令对应的函数都由其操作码作为数组下标来索引。新建两个文件：Instructions.hpp和Instructions.cpp来存储所有的指令函数。Instructions.hpp内容如下：
+
+#pragma once
+
+struct Emulator;
+using instruction_func_t = void(Emulator* emu);
+
+//! A map of all instruction functions by their opcodes.
+extern instruction_func_t* instructions_map[256];
+Instructions.cpp内容如下：
+
+#include "Instructions.hpp"
+
+instruction_func_t* instructions_map[256] = 
+{
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr
+};
+可以看到，目前我们的函数数组只是一个全部为空指针的数组。我们将在后面几章中逐步实现各个指令，并将对应的函数填入数组中。有了这个数组以后，我们便可以如下实现CPU::step：
+
+#include "CPU.hpp"
+#include "Emulator.hpp"
+#include <Luna/Runtime/Log.hpp>
+#include "Instructions.hpp"
+void CPU::init()
+{
+    // ref: https://github.com/rockytriton/LLD_gbemu/raw/main/docs/The%20Cycle-Accurate%20Game%20Boy%20Docs.pdf
+    af(0x01B0);
+    bc(0x0013);
+    de(0x00D8);
+    hl(0x014D);
+    sp = 0xFFFE;
+    pc = 0x0100;
+    halted = false;
+}
+void CPU::step(Emulator* emu)
+{
+    if(!halted)
+    {
+        // fetch opcode.
+        u8 opcode = emu->bus_read(pc);
+        // increase counter.
+        ++pc;
+        // execute opcode.
+        instruction_func_t* instruction = instructions_map[opcode];
+        if(!instruction)
+        {
+            log_error("LunaGB", "Instruction 0x%02X not present.", (u32)opcode);
+            emu->paused = true;
+        }
+        else
+        {
+            instruction(emu);
+        }
+    }
+    else
+    {
+        emu->tick(1);
+    }
+}
+在上面的代码中，我们使用操作码作为下标来索引对应的指令函数并执行。如果找不到对应的函数，则输出错误信息并暂停模拟器，以便我们能够排查错误。在实际的游戏机中，执行不存在的指令会锁死机器（暂停所有部件的运行），直到机器断电并再次通电才会恢复。
+
+最后，让我们修改Emulator.hpp和Emulator.cpp，将CPU部分的代码接入模拟器：
+
+Emulator.hpp：
+
+#pragma once
+#include <Luna/Runtime/Result.hpp>
+#include "CPU.hpp"
+using namespace Luna;
+
+struct Emulator
+{
+    byte_t* rom_data = nullptr;
+    usize rom_data_size = 0;
+
+    //! `true` if the emulation is paused.
+    bool paused = false;
+    //! The cycles counter.
+    u64 clock_cycles = 0;
+    //! The clock speed scale value.
+    f32 clock_speed_scale = 1.0;
+
+    CPU cpu;
+
+    RV init(const void* cartridge_data, usize cartridge_data_size);
+    void update(f64 delta_time);
+    //! Advances clock and updates all hardware states (except CPU).
+    //! This is called from CPU instructions.
+    //! @param[in] mcycles The number of machine cycles to tick.
+    void tick(u32 mcycles);
+    void close();
+    ~Emulator()
+    {
+        close();
+    }
+};
+Emulator.cpp：
+
+#include "Emulator.hpp"
+#include "Cartridge.hpp"
+#include <Luna/Runtime/Log.hpp>
+
+RV Emulator::init(const void* cartridge_data, usize cartridge_data_size)
+{
+    /*...*/
+    cpu.init();
+    return ok;
+}
+void Emulator::update(f64 delta_time)
+{
+    u64 frame_cycles = (u64)((f32)(4194304.0 * delta_time) * clock_speed_scale);
+    u64 end_cycles = clock_cycles + frame_cycles;
+    while(clock_cycles < end_cycles)
+    {
+        if(paused) break;
+        cpu.step(this);
+    }
+}
+在Emulator::init中，我们添加了代码以初始化CPU的状态。在Emulator::update中，我们反复执行CPU::step来步进CPU，直到当前clock_cycles计数器的值大于等于帧结束时clock_cycles计数器应该到达的值。CPU::step执行的每一条指令都会在内部调用Emulator::tick来增加clock_cycles计数器的值，其参数等于该指令花费的机器周期数。
+
+实现总线
+上述的CPU代码中调用了bus_read函数以读取总线数据，接下来就让我们实现总线吧！在Emulator类中添加以下两个方法：
+
+u8 bus_read(u16 addr);
+void bus_write(u16 addr, u8 data);
+bus_read用于从指定的地址中读取数据并返回，而bus_write则用于将给定的数据写入指定地址。对于总线读写需要的工作内存和显示内存，我们可以直接在Emulator类中以字节数组的形式定义：
+
+byte_t vram[8_kb];
+byte_t wram[8_kb];
+byte_t hram[128];
+接下来，我们在Emulator.cpp中实现总线读写函数：
+
+u8 Emulator::bus_read(u16 addr)
+{
+    if(addr <= 0x7FFF)
+    {
+        // Cartridge ROM.
+        return cartridge_read(this, addr);
+    }
+    if(addr <= 0x9FFF)
+    {
+        // VRAM.
+        return vram[addr - 0x8000];
+    }
+    if(addr <= 0xBFFF)
+    {
+        // Cartridge RAM.
+        return cartridge_read(this, addr);
+    }
+    if(addr <= 0xDFFF)
+    {
+        // Working RAM.
+        return wram[addr - 0xC000];
+    }
+    if(addr >= 0xFF80 && addr <= 0xFFFE)
+    {
+        return hram[addr - 0xFF80];
+    }
+    log_error("LunaGB", "Unsupported bus read address: 0x%04X", (u32)addr);
+    return 0xFF;
+}
+void Emulator::bus_write(u16 addr, u8 data)
+{
+    if(addr <= 0x7FFF)
+    {
+        // Cartridge ROM.
+        cartridge_write(this, addr, data);
+        return;
+    }
+    if(addr <= 0x9FFF)
+    {
+        // VRAM.
+        vram[addr - 0x8000] = data;
+        return;
+    }
+    if(addr <= 0xBFFF)
+    {
+        // Cartridge RAM.
+        cartridge_write(this, addr, data);
+        return;
+    }
+    if(addr <= 0xDFFF)
+    {
+        // Working RAM.
+        wram[addr - 0xC000] = data;
+        return;
+    }
+    if(addr >= 0xFF80 && addr <= 0xFFFE)
+    {
+        // High RAM.
+        hram[addr - 0xFF80] = data;
+        return;
+    }
+    log_error("LunaGB", "Unsupported bus write address: 0x%04X", (u32)addr);
+    return;
+}
+总线读写函数的实现非常简单，我们只需要根据上文所说的映射规则，将对不同地址的读写映射到不同的内存区域上。对于目前还没实现的地址区域，我们简单地输出一个错误信息，然后当作对非法地址的访问处理（读操作返回0xFF，写操作直接忽略）。由于之后我们需要为卡带实现MBC功能，所以这里我们使用cartridge_read和cartridge_write两个函数来封装对卡带数据的读写操作。我们在Cartridge.hpp中添加以下声明：
+
+struct Emulator;
+u8 cartridge_read(Emulator* emu, u16 addr);
+void cartridge_write(Emulator* emu, u16 addr, u8 data);
+然后在Cartridge.cpp中添加以下实现：
+
+u8 cartridge_read(Emulator* emu, u16 addr)
+{
+    if(addr <= 0x7FFF)
+    {
+        return emu->rom_data[addr];
+    }
+    log_error("LunaGB", "Unsupported cartridge read address: 0x%04X", (u32)addr);
+    return 0xFF;
+}
+void cartridge_write(Emulator* emu, u16 addr, u8 data)
+{
+    log_error("LunaGB", "Unsupported cartridge write address: 0x%04X", (u32)addr);
+}
+由于目前我们只支持单ROM芯片的卡带，因此cartridge_write实际上不执行任何操作，只会记录一个错误然后就返回，而cartridge_read会检查输入的地址范围，如果地址在卡带的ROM数据区域，就返回对应的数据，否则就输出错误并返回0xFF。
+
+最后，别忘了在模拟器初始化的时候将工作内存和显示内存清零：
+
+RV Emulator::init(const void* cartridge_data, usize cartridge_data_size)
+{
+    /*...*/
+    cpu.init();
+    memzero(wram, 8_kb);
+    memzero(vram, 8_kb);
+    return ok;
+}

@@ -1,0 +1,135 @@
+# Game Boy PPU 本地参考
+
+本文件将原有网页链接整理为可离线阅读的图形子系统概览。项目内关于 Fetcher、
+FIFO、寄存器和渲染流程的实现说明见
+[`PPU_IMPLEMENTATION_GUIDE.md`](PPU_IMPLEMENTATION_GUIDE.md)。
+
+## 显示模型
+
+Game Boy 的 LCD 分辨率为 **160×144 像素**。PPU 不直接保存单像素颜色，而是用
+`8×8` 像素的 tile（图块）构建画面。每个图块像素保存 2 位颜色索引，范围为 `0` 到
+`3`，因此常称为 **2bpp** 图形。图块本身不包含最终颜色；颜色索引通过调色板映射后
+才成为屏幕颜色。
+
+DMG 的图形由三个从后到前的图层构成：
+
+| 图层 | 作用 | 关键特性 |
+| --- | --- | --- |
+| 背景（Background） | 可滚动的 256×256 像素 tilemap | 由 `SCX`、`SCY` 统一滚动 |
+| 窗口（Window） | 覆盖在背景上的第二个 tilemap | 无透明度，左上角由 `WX`、`WY` 决定 |
+| 对象（Object / sprite） | 独立移动的 OAM 条目 | 每个条目为 `8×8` 或 `8×16`，颜色索引 0 透明 |
+
+大图形通常由多个对象组合而成（metasprite）。这里的 “object” 特指一条 OAM 记录，
+而 “sprite” 在资料和游戏开发中有时泛指整组可移动图形。
+
+## 图块、地图与寻址
+
+VRAM 的图块数据从 `0x8000` 开始。一个 tile 有 8 行，每行由两个字节组成，因此每个
+tile 占 16 字节。对于第 `row` 行、从左数第 `x` 列的像素：
+
+```typescript
+const low = bus.read(tileAddress + row * 2);
+const high = bus.read(tileAddress + row * 2 + 1);
+const bit = 7 - x;
+const colorIndex = ((high >> bit) & 1) << 1 | ((low >> bit) & 1);
+```
+
+背景与窗口的 tilemap 均为 `32×32` 个图块，即 `256×256` 像素。tilemap 中保存的是
+图块编号而非像素数据；这使相同图块可以被低成本地重复使用。LCDC 选择下列区域：
+
+| 用途 | 可选地址 |
+| --- | --- |
+| 背景 tilemap | `0x9800` 或 `0x9C00` |
+| 窗口 tilemap | `0x9800` 或 `0x9C00` |
+| 背景/窗口图块数据 | 无符号 `0x8000` 模式，或以 `0x9000` 为基址的有符号编号模式 |
+
+有符号模式把 tile 编号视为 `int8`，有效地址为
+`0x9000 + signedTileIndex * 16`；不要把 `0x8800` 误当成该模式的直接基址。
+
+背景坐标按 256 回绕：
+
+```typescript
+const backgroundX = (screenX + scx) & 0xff;
+const backgroundY = (ly + scy) & 0xff;
+const mapAddress = mapBase + (backgroundY >> 3) * 32 + (backgroundX >> 3);
+```
+
+窗口的屏幕起点为 `(WX - 7, WY)`。窗口一旦在本帧开始显示，其 tile 行应由独立的
+window line counter 决定，不能用 `LY + SCY` 代替。
+
+## 调色板与像素合成
+
+DMG 中 `BGP`、`OBP0`、`OBP1` 的每两位指定一个颜色索引对应的灰阶：
+
+```text
+bits 1–0: 索引 0   bits 3–2: 索引 1
+bits 5–4: 索引 2   bits 7–6: 索引 3
+```
+
+背景和窗口可以显示索引 0–3。对象的索引 0 **始终透明**，不会覆盖背景；索引 1–3
+使用由对象属性选择的 `OBP0` 或 `OBP1`。
+
+当对象像素不透明时，是否覆盖背景还取决于对象优先级：属性 bit 7 为 0 时对象在前；
+bit 7 为 1 时，只有背景/窗口的原始颜色索引为 0 才显示对象。优先级比较必须使用
+调色板映射前的颜色索引。
+
+## OAM 与对象
+
+OAM 位于 `0xFE00`–`0xFE9F`，共 160 字节、40 条记录，每条四字节：
+
+| 偏移 | 内容 | 屏幕坐标/含义 |
+| --- | --- | --- |
+| 0 | Y | 实际屏幕 Y 为 `Y - 16` |
+| 1 | X | 实际屏幕 X 为 `X - 8` |
+| 2 | tile 编号 | `8×16` 模式下最低位被忽略 |
+| 3 | 属性 | 优先级、Y 翻转、X 翻转、DMG 调色板 |
+
+属性的 DMG 含义为：bit 7 背景优先、bit 6 Y 翻转、bit 5 X 翻转、bit 4 选择 `OBP1`
+（否则 `OBP0`）。每条扫描线最多选取 10 个可见对象；该限制按 OAM 顺序扫描，
+不能在选取后再仅按 X 坐标挑选十个。
+
+`8×16` 对象由相邻的两块 tile 垂直组成，tile 编号的 bit 0 强制为 0。Y 翻转应在
+选择 tile 的行之前处理，因此会同时影响顶部/底部 tile 的选择。
+
+## 扫描线和 PPU 模式
+
+一帧通常有 154 条扫描线，每线 456 个 dot；`LY = 0`–`143` 是可见线，
+`LY = 144`–`153` 为 VBlank。可见线按以下阶段推进：
+
+| 模式 | STAT bits 1–0 | 典型长度 | 职责 |
+| --- | --- | --- | --- |
+| OAM scan | 2 | 80 dots | 扫描 40 条 OAM 记录并选择本行至多 10 个对象 |
+| Pixel transfer | 3 | 可变 | Fetcher/FIFO 生成并输出 160 个像素 |
+| HBlank | 0 | 该行余下时间 | 等待下一条扫描线 |
+| VBlank | 1 | 10 条线 | 提交帧并触发 VBlank 中断 |
+
+Pixel transfer 的长度会受到 `SCX` 低三位丢弃像素、窗口启动和对象取数的影响，
+不能固定成一个常数。LCD 关闭时，PPU 应回到确定的初始状态；重新开启后从模式 2
+开始新的帧时序。
+
+`STAT` 的 mode 位在 **bits 1–0**，`LYC == LY` 状态在 bit 2；bit 3–6 分别控制
+HBlank、VBlank、OAM、LYC 的 STAT 中断来源。VBlank 中断（IF bit 0）与 STAT
+中断（IF bit 1）是不同的中断请求。
+
+## DMA 与访问限制
+
+向 `0xFF46` 写入源地址的高字节会启动 OAM DMA：从 `value << 8` 连续复制 160 字节到
+OAM。传输持续约 640 个时钟周期（160 machine cycles）；DMG 上 CPU 在此期间只能
+可靠地访问 HRAM。PPU 也会在不同模式限制 CPU 对 VRAM/OAM 的访问：像素传输期间
+VRAM 不可访问，OAM scan 与像素传输期间 OAM 不可访问。
+
+## 实现核对清单
+
+1. 图块行采用 low byte 为颜色位 0、high byte 为颜色位 1，且以 bit 7 作为最左像素；
+2. 背景滚动坐标在 8 位范围内回绕，窗口使用独立的行计数；
+3. 对象坐标应用 `X - 8`、`Y - 16` 偏移，并正确实现翻转和 `8×16` 编号掩码；
+4. 对象颜色索引 0 透明，优先级使用背景原始颜色索引；
+5. 每行只按 OAM 扫描顺序接受前 10 个相交对象；
+6. `LY`、`LYC`、STAT 模式位、VBlank/STAT 中断和 DMA 的时序分别维护；
+7. 用 `dmg-acid2`、`mooneye-gb` 的 PPU 测试以及实际 ROM 检查边界行为。
+
+## 来源状态
+
+已读取并转写：Pan Docs 的 Graphics Overview（图块、调色板、图层及对象概念）。
+原清单的三篇知乎文章在本次读取时均返回 HTTP 403，无法验证其正文，故没有将其
+内容写入本地文档。以上时序和寄存器要点与项目的 PPU 实现指南相互补充。
