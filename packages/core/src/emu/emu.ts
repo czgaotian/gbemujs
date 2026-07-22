@@ -23,6 +23,7 @@ export class GameBoy {
   public serial: Serial;
 
   public lastTime: number;
+  public animationFrameId: number | undefined;
   public clockCycles: number = 0;
   public clockSpeedScale: number = 1;
   public paused: boolean = false;
@@ -88,12 +89,21 @@ export class GameBoy {
     ) {
       // browser
       const browserLoop = (currentTime: number) => {
-        const deltaTime = Math.min(currentTime - this.lastTime, MAX_TIME_STEP);
+        const deltaTime = Math.min(
+          (currentTime - this.lastTime) / 1000,
+          MAX_TIME_STEP
+        );
         this.lastTime = currentTime;
         this.update(deltaTime);
-        requestAnimationFrame(browserLoop);
+        scheduleBrowserLoop();
       };
-      requestAnimationFrame(browserLoop);
+      const scheduleBrowserLoop = () => {
+        if (this.animationFrameId !== undefined) {
+          cancelAnimationFrame(this.animationFrameId);
+        }
+        this.animationFrameId = requestAnimationFrame(browserLoop);
+      };
+      scheduleBrowserLoop();
     }
   }
 
