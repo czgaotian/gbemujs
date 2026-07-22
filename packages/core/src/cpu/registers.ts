@@ -190,7 +190,7 @@ export class Registers {
   }
 
   set f(value: number) {
-    this._register.setUint8(1, value);
+    this._register.setUint8(1, value & 0xf0);
   }
 
   get b() {
@@ -246,7 +246,7 @@ export class Registers {
   }
 
   set af(value: number) {
-    this._register.setUint16(0, value);
+    this._register.setUint16(0, value & 0xfff0);
   }
 
   get bc() {

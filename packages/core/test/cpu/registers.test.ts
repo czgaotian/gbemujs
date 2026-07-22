@@ -40,16 +40,16 @@ describe('Registers', () => {
 
     it('should handle overflow in 16-bit registers', () => {
       registers.set(RT.AF, 0x1ffff);
-      expect(registers.read(RT.AF)).toBe(0xffff);
+      expect(registers.read(RT.AF)).toBe(0xfff0);
     });
   });
 
   describe('16-bit register operations', () => {
     it('should read and write 16-bit registers correctly', () => {
       registers.set(RT.AF, 0x1234);
-      expect(registers.read(RT.AF)).toBe(0x1234);
+      expect(registers.read(RT.AF)).toBe(0x1230);
       expect(registers.a).toBe(0x12);
-      expect(registers.f).toBe(0x34);
+      expect(registers.f).toBe(0x30);
 
       registers.set(RT.PC, 0xef01);
       expect(registers.read(RT.PC)).toBe(0xef01);
@@ -62,6 +62,14 @@ describe('Registers', () => {
   });
 
   describe('flag operations', () => {
+    it('masks the lower flag bits for direct F and AF assignments', () => {
+      registers.f = 0xff;
+      expect(registers.f).toBe(0xf0);
+
+      registers.af = 0x12ff;
+      expect(registers.af).toBe(0x12f0);
+    });
+
     it('should set and read flags correctly', () => {
       registers.setFlags(1, 0, 1, 0);
 
