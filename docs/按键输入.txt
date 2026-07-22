@@ -1,0 +1,277 @@
+按键输入
+0xFF00 - P1
+GameBoy的所有按键输入检测均通过0xFF00 P1这一个寄存器完成。在GameBoy上，总共有8个游戏可以使用的按键，分别是：
+
+方向键（上、下、左、右）
+A键
+B键
+SELECT键
+START键
+P1寄存器分为两个区域，低四位为只读区域，用于程序读取按键输出，而第5位和第6位为读写区域，用于选择将哪四个按钮映射到寄存器的低四位上。P1每个位的含义如下表所示：
+
+7	6	5	4	3	2	1	0
+-	-	选择功能键	选择方向键	按钮3状态（只读）	按钮2状态（只读）	按钮1状态（只读）	按钮0状态（只读）
+P1.4和P1.5都以0为选择，1为不选择。例如，当选择方向键的值为0，选择功能键的值为1时，P1的低4位会映射到四个方向键的输入状态：
+
+7	6	5	4	3	2	1	0
+-	-	1	0	下	上	左	右
+当选择方向键的值为1，选择功能键的值为0时，P1的低4位会映射到四个功能键的输入状态：
+
+7	6	5	4	3	2	1	0
+-	-	0	1	START	SELECT	B	A
+对于上述的8个按键，当按键按下时，对应的位读取的值为0，否则为1。当程序需要检测按钮输入时，其首先需要向0xFF00地址写入一个数字，这个数字的第5位和第6位中需要有一位为1，另一位为0，从而选择需要将哪四个按钮的输入状态映射到0xFF00的低四位上。接着，程序需要读取0xFF00的值，并将其与0x0F做按位与操作，从而取出四个按钮的状态，进行进一步的判断。在读取按钮状态时，如果P1.4和P1.5的值均为0，则低四位固定会读取出0xF值，即所有按键都没有按下。P1.4和P1.5的值不可同时为1，否则读取的值无效，实际的游戏会避免将P1.4和P1.5的值同时设置为1。
+
+输入抖动
+由于GameBoy按钮的物理性质，当玩家按下按钮时，程序从0xFF00中读取的值并不是立即从1变为0，而是会在1和0之间反复变化若干次，最后才稳定为0；同样，当玩家释放按钮时，值也会在0和1之间变化若干次，最后才稳定为1，该现象被称为输入抖动（switch bounce）。为了避免输入抖动造成的重复输入，大部分游戏在设置0xFF00的按钮选择位以后，都会读取0xFF00的值若干次，并在每两次读取中都加入一定的延迟，从而让按钮的输入数值稳定，然后取最后一次的数值作为按钮的最终状态。
+
+由于每次选中的四个按钮的电平从1变为0时都会由硬件触发INT_JOYPAD中断，而因为输入抖动的存在，玩家在每一次按下按钮时，都会触发多次INT_JOYPAD中断，因此INT_JOYPAD中断在大部分场合下都无法很好地用于检测用户输入。在实践中，几乎所有游戏都采用了轮询法（每隔固定时间读取一次0xFF00的值）而不是INT_JOYPAD中断来响应按键输入。
+
+输入抖动问题在实现模拟器时并不存在，因为正常电脑上的键盘和手柄驱动都会帮我们处理好输入抖动的问题。上述原理只是作为背景资料供读者参考。
+
+实现按键输入
+在了解了输入的工作原理后，我们就可以编程实现GameBoy的按键输入了。GameBoy的按键输入实现分为两个部分，首先在模拟器中，我们需要一个按键状态表来记录当前每个按键的状态，当程序读取0xFF00的值时，模拟器会根据该状态表来确定应该返回的值；然后在模拟器外部，我们需要在应用程序的主循环中检测电脑键盘和游戏手柄的输入，并在用户按下键盘按键和手柄按键时更新模拟器的按键状态，从而将程序的输入映射为模拟器的输入。
+
+我们首先实现模拟器中的部分。新建Joypad.hpp和Joypad.cpp来保存按键输入部分的代码，Joypad.hpp的代码如下：
+
+cpp">#pragma once
+#include <Luna/Runtime/MemoryUtils.hpp>
+using namespace Luna;
+
+struct Emulator;
+struct Joypad
+{
+    bool a;
+    bool b;
+    bool select;
+    bool start;
+    bool right;
+    bool left;
+    bool up;
+    bool down;
+    //! 0xFF00
+    u8 p1;
+
+    void init();
+    u8 get_key_state() const;
+    void update(Emulator* emu);
+    u8 bus_read();
+    void bus_write(u8 v);
+};
+我们定义了一个Joypad类，并在类中为每一个按键定义了一个bool变量，来表示该按键是否按下。除了这些按键状态变量以外，我们还定义了一个p1变量，这个变量用于保存0xFF00 P1寄存器的值。接着我们定义了一系列用于操作Joypad类的方法，例如与其余组件类似的init、bus_read和bus_write方法（由于Joypad总共就一个寄存器，所以这里不需要传入addr参数），以及在下面会介绍的一些新的方法。
+
+Joypad.cpp的代码如下所示：
+
+#include "Joypad.hpp"
+#include "Emulator.hpp"
+
+void Joypad::init()
+{
+    memzero(this);
+    p1 = 0xFF;
+}
+u8 Joypad::get_key_state() const
+{
+    u8 v = 0xFF;
+    if(!bit_test(&p1, 4))
+    {
+        if(right) bit_reset(&v, 0);
+        if(left) bit_reset(&v, 1);
+        if(up) bit_reset(&v, 2);
+        if(down) bit_reset(&v, 3);
+        bit_reset(&v, 4);
+    }
+    if(!bit_test(&p1, 5))
+    {
+        if(a) bit_reset(&v, 0);
+        if(b) bit_reset(&v, 1);
+        if(select) bit_reset(&v, 2);
+        if(start) bit_reset(&v, 3);
+        bit_reset(&v, 5);
+    }
+    return v;
+}
+void Joypad::update(Emulator* emu)
+{
+    u8 v = get_key_state();
+    // Any button is pressed in this update.
+    if((bit_test(&p1, 0) && !bit_test(&v, 0)) ||
+    (bit_test(&p1, 1) && !bit_test(&v, 1)) ||
+    (bit_test(&p1, 2) && !bit_test(&v, 2)) ||
+    (bit_test(&p1, 3) && !bit_test(&v, 3)))
+    {
+        emu->int_flags |= INT_JOYPAD;
+    }
+    p1 = v;
+}
+u8 Joypad::bus_read()
+{
+    return p1;
+}
+void Joypad::bus_write(u8 v)
+{
+    // Only update bit 4 and bit 5.
+    p1 = (v & 0x30) | (p1 & 0xCF);
+    // Refresh key states.
+    p1 = get_key_state();
+}
+get_key_state函数用于根据当前P1.4和P1.5和各个按键变量的状态返回一个新的p1变量值，用于在update和bus_write中更新寄存器。在get_key_state中，我们首先判断P1.4和P1.5的状态，以确定我们需要读取哪四个按键的状态，然后根据P1的选择结果和对应的按键状态将返回值的对应位从1设置为0，并返回设置完毕的结果。由于返回值的初始值是0xFF，因此如果P1.4和P1.5都是1，即都没有选中的话，我们会直接返回0xFF。
+
+update函数在每一帧调用一次，因为我们在一帧中只会改变一次输入状态，因此和别的组件不同，我们不需要在每个时钟周期中都更新Joypad的状态。在update函数中，我们会首先调用get_key_state函数，根据当前的按键状态获取新的P1值，然后将新的P1和之前的P1值比较，以确定是否有任意按钮被按下（对应的值从1变成了0），并在按下的情况下设置JOYPAD中断标志位。最后，我们会用新的P1值更新p1变量。
+
+bus_read和bus_write函数用于读写p1变量。在bus_write中，由于只有P1.4和P1.5是可读写的，因此我们使用位运算屏蔽对其余位的值的修改，并在修改P1变量以后调用get_key_state重新设置P1的值，因此当程序修改了P1.4和P1.5的值后，P1的低四位的值会得到重新映射。
+
+最后，我们修改Emulator类，将Joypad组件加入到模拟器中：
+
+Emulator.hpp：
+
+struct Emulator
+{
+    /*...*/
+    PPU ppu;
+    Joypad joypad;
+
+    /*...*/
+};
+Emulator.cpp：
+
+RV Emulator::init(const void* cartridge_data, usize cartridge_data_size)
+{
+    /*...*/
+    ppu.init();
+    joypad.init();
+    return ok;
+}
+void Emulator::update(f64 delta_time)
+{
+    joypad.update(this);
+    u64 frame_cycles = (u64)((f32)(4194304.0 * delta_time) * clock_speed_scale);
+    u64 end_cycles = clock_cycles + frame_cycles;
+    while(clock_cycles < end_cycles)
+    {
+        if(paused) break;
+        cpu.step(this);
+    }
+}
+u8 Emulator::bus_read(u16 addr)
+{
+    /*...*/
+    if(addr >= 0xFE00 && addr <= 0xFE9F)
+    {
+        return oam[addr - 0xFE00];
+    }
+    if(addr == 0xFF00)
+    {
+        return joypad.bus_read();
+    }
+    if(addr >= 0xFF01 && addr <= 0xFF02)
+    {
+        return serial.bus_read(addr);
+    }
+    /*...*/
+}
+void Emulator::bus_write(u16 addr, u8 data)
+{
+    /*...*/
+    if(addr >= 0xFE00 && addr <= 0xFE9F)
+    {
+        oam[addr - 0xFE00] = data;
+        return;
+    }
+    if(addr == 0xFF00)
+    {
+        joypad.bus_write(data);
+        return;
+    }
+    if(addr >= 0xFF01 && addr <= 0xFF02)
+    {
+        serial.bus_write(addr, data);
+        return;
+    }
+    /*...*/
+}
+接着我们需要修改我们的程序框架，以在每一帧更新Joypad类中各个按钮bool变量的值。在App类中添加一个单独的函数来更新模拟器的输入：
+
+void update_emulator_input();
+在App.cpp中，我们首先需要引入两个新的头文件：
+
+#include <Luna/HID/Keyboard.hpp>
+#include <Luna/HID/Controller.hpp>
+这两个头文件属于LunaSDK的HID（Human Interface Device）模块，该模块用于读写平台的各种外部设备状态，尤其是输入设备的状态。从头文件的名字不难发现，这两个头文件分别用于获取键盘和控制器（游戏手柄）的输入。接着我们在App.cpp中实现update_emulator_input函数：
+
+void App::update_emulator_input()
+{
+    auto& joypad = emulator->joypad;
+    if(window->is_focused())
+    {
+        joypad.up = HID::get_key_state(HID::KeyCode::w) || HID::get_key_state(HID::KeyCode::up);
+        joypad.left = HID::get_key_state(HID::KeyCode::a) || HID::get_key_state(HID::KeyCode::left);
+        joypad.down = HID::get_key_state(HID::KeyCode::s) || HID::get_key_state(HID::KeyCode::down);
+        joypad.right = HID::get_key_state(HID::KeyCode::d) || HID::get_key_state(HID::KeyCode::right);
+        joypad.a = HID::get_key_state(HID::KeyCode::j);
+        joypad.b = HID::get_key_state(HID::KeyCode::k);
+        joypad.select = HID::get_key_state(HID::KeyCode::spacebar);
+        joypad.start = HID::get_key_state(HID::KeyCode::enter);
+        if (HID::supports_controller())
+        {
+            auto gc_input = HID::get_controller_state(0);
+            if (gc_input.connected)
+            {
+                joypad.up = joypad.up || test_flags(gc_input.buttons, HID::ControllerButton::up) ;
+                joypad.up = joypad.up || (gc_input.axis_ly >= 0.5f);
+                joypad.left = joypad.left || test_flags(gc_input.buttons, HID::ControllerButton::left);
+                joypad.left = joypad.left || (gc_input.axis_lx <= -0.5f);
+                joypad.down = joypad.down || test_flags(gc_input.buttons, HID::ControllerButton::down);
+                joypad.down = joypad.down || (gc_input.axis_ly <= -0.5f);
+                joypad.right = joypad.right || test_flags(gc_input.buttons, HID::ControllerButton::right);
+                joypad.right = joypad.right || (gc_input.axis_lx >= 0.5f);
+                joypad.a = joypad.a || test_flags(gc_input.buttons, HID::ControllerButton::a);
+                joypad.b = joypad.b || test_flags(gc_input.buttons, HID::ControllerButton::b);
+                joypad.select = joypad.select || test_flags(gc_input.buttons, HID::ControllerButton::lspecial);
+                joypad.start = joypad.start || test_flags(gc_input.buttons, HID::ControllerButton::rspecial);
+            }
+        }
+    }
+}
+window->is_focused用于判断当前窗口是否具有用户焦点，即是否被用户选中。由于HID提供的是全局输入状态，我们不希望用户在操作别的窗口时处理用户的输入，因此需要首先对此进行判断。HID::get_key_state用于判断当前用户是否按下了指定的键盘按键，其在按键处于按下状态时返回true，否则返回false。我们将模拟器的方向键同时映射到键盘的WASD和上下左右键，以方便不同操作习惯的用户使用，同时将A、B、SELECT、START键分别映射为J键、K键、空格键和回车键。读者可以根据自己的喜好自行修改上述键位映射。
+
+HID::supports_controller用于判断当前平台是否支持手柄输入，在当前平台支持手柄输入的情况下，我们可以调用HID::get_controller_state来获取手柄的当前状态，从而让我们的模拟器同样支持手柄操作。HID::get_controller_state的参数用于指定手柄的序号，该参数用于支持多手柄输入，但对于我们的模拟器来说，我们只需要从第一个手柄（序号0）获取输入就可以。HID::get_controller_state返回一个ControllerInputState类型的结构体，该结构体的原型如下：
+
+struct ControllerInputState
+{
+    //! Whether this device is connected and the state is valid.
+    bool connected;
+    //! A combination of bits to represent the pressed state of each button (1 for pressed, 0 for not pressed).
+    ControllerButton buttons;
+    //! The x axis for left pad, mapped to [-1, 1].
+    f32 axis_lx;
+    //! The y axis for left pad, mapped to [-1, 1].
+    f32 axis_ly;
+    //! The x axis for right pad, mapped to [-1, 1].
+    f32 axis_rx;
+    //! The y axis for right pad, mapped to [-1, 1].
+    f32 axis_ry;
+    //! The left trigger value, mapped to [0, 1]. For non-linear controllers, the value is either 0 or 1.
+    f32 axis_lt;
+    //! The right trigger value, mapped to [0, 1]. For non-linear controllers, the value is either 0 or 1.
+    f32 axis_rt;
+};
+connected变量用于标识该手柄当前是否处于活跃状态，只有当connected变量的值为true时，下面的所有值才有意义。除了connected变量以外，剩下的所有变量均为从手柄读取到的用户输入，每个变量的含义在上述代码中都有解释。在使用手柄的情况下，我们会将GameBoy的方向键映射为手柄左侧的方向键和左侧的遥感，将A、B键映射为手柄的A、B键，将SELECT键、START键映射为手柄的左功能键和右功能键。
+
+最后，我们在App::update中调用我们的update_emulator_input方法：
+
+RV App::update()
+{
+    lutry
+    {
+        /*...*/
+        if(emulator)
+        {
+            update_emulator_input();
+            emulator->update(delta_time);
+        }
+        /*...*/
+    }
+    lucatchret;
+    return ok;
+}
+编译并运行模拟器，打开任意单ROM的游戏卡带，可以发现我们已经能够顺利玩游戏了：

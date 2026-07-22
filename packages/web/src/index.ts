@@ -3,6 +3,7 @@ import { PALETTE, PPU_XRES, PPU_YRES } from '@gbjs/core/constants/ppu';
 import { registerFDisplay } from '@gbjs/core/utils/cpu';
 import { SERIAL, FRAME_UPDATE } from '@gbjs/core/event';
 import { cssString, domString } from './template';
+import { updateJoypadKey } from './key-input';
 
 export class GameBoyDom extends HTMLElement {
   gameBoy: GameBoy;
@@ -81,28 +82,12 @@ export class GameBoyDom extends HTMLElement {
       screenRender(screen, frame);
     });
 
-    window.addEventListener('keyup', (e) => handleKeyEvent(e, true));
-    window.addEventListener('keydown', (e) => handleKeyEvent(e, false));
+    // DOM 的 keydown 表示按下，keyup 表示松开。
+    window.addEventListener('keyup', (e) => handleKeyEvent(e, false));
+    window.addEventListener('keydown', (e) => handleKeyEvent(e, true));
 
     const handleKeyEvent = (e: KeyboardEvent, isPressed: boolean) => {
-      switch (e.code) {
-        case 'KeyW':
-          this.gameBoy.joypad.up = isPressed;
-        case 'KeyA':
-          this.gameBoy.joypad.left = isPressed;
-        case 'KeyS':
-          this.gameBoy.joypad.down = isPressed;
-        case 'KeyD':
-          this.gameBoy.joypad.right = isPressed;
-        case 'KeyG':
-          this.gameBoy.joypad.select = isPressed;
-        case 'KeyH':
-          this.gameBoy.joypad.start = isPressed;
-        case 'KeyJ':
-          this.gameBoy.joypad.a = isPressed;
-        case 'KeyK':
-          this.gameBoy.joypad.b = isPressed;
-      }
+      updateJoypadKey(this.gameBoy.joypad, e.code, isPressed);
     };
   }
 }

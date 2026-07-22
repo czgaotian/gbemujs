@@ -12,8 +12,8 @@ export class Joypad {
   up = false;
   down = false;
 
-  // 0xFF00 p1 register
-  p1 = 0;
+  // 0xFF00 P1 初始为空闲状态：不选择任何按键组，所有输入均为高电平。
+  p1 = 0xff;
 
   constructor(private emu: GameBoy) {}
 
@@ -26,7 +26,7 @@ export class Joypad {
     this.left = false;
     this.up = false;
     this.down = false;
-    this.p1 = 0;
+    this.p1 = 0xff;
   }
 
   getKeyStatus() {
@@ -50,9 +50,11 @@ export class Joypad {
     return value;
   }
 
-  update() {
+  private refreshP1() {
     const value = this.getKeyStatus();
 
+    // 任意输入线从高电平变为低电平时请求 JOYPAD 中断。
+    // 这也覆盖了先按住按键、后选择其所属按键组的情形。
     if (
       (bitTest(this.p1, 0) && !bitTest(value, 0)) ||
       (bitTest(this.p1, 1) && !bitTest(value, 1)) ||
@@ -65,12 +67,17 @@ export class Joypad {
     this.p1 = value;
   }
 
+  update() {
+    this.refreshP1();
+  }
+
   read() {
     return this.p1;
   }
 
   write(value: number) {
+    // 只有 P1.4 和 P1.5 可写；更新选择位后可能会暴露已按住的按键。
     this.p1 = (value & 0x30) | (this.p1 & 0xcf);
-    this.p1 = this.getKeyStatus();
+    this.refreshP1();
   }
 }
