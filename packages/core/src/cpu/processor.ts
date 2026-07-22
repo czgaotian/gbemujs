@@ -94,8 +94,8 @@ function HALT(this: CPU) {
   if (pendingInterrupts && !this.interruptMasterEnabled) {
     // HALT bug: 如果 IME=0 但有挂起中断
     // CPU 不会真正进入 HALT 模式，而是继续执行下一条指令
-    // 不设置 halted 标志，这样下一个 step 会正常执行
-    // HALT 指令的周期已经在 fetch 时消耗
+    // 不进入 HALT，并让下一次取指重复使用当前 PC。
+    this.haltBug = true;
   } else {
     // 正常 HALT：进入暂停模式
     // CPU 会持续消耗周期直到有中断发生
@@ -248,8 +248,9 @@ function RET(this: CPU) {
 }
 
 function RETI(this: CPU) {
-  this.enableInterruptMaster();
   RET.call(this);
+  this.interruptMasterEnabled = true;
+  this.interruptMasterEnablingCountdown = 0;
 }
 
 function POP(this: CPU) {
@@ -441,6 +442,7 @@ function ADD(this: CPU) {
 }
 
 function STOP(this: CPU) {
+  this.registers.pc++;
   this.emulator.paused = true;
 }
 

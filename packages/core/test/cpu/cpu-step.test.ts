@@ -201,3 +201,38 @@ test('HALT wakes when an enabled interrupt becomes pending', () => {
 
   expect(emu.cpu.halted).toBe(false);
 });
+
+test('HALT bug suppresses the next opcode fetch PC increment', () => {
+  const emu = createCpu(0x76, 0x04);
+  emu.intEnableFlags = INTERRUPT_TYPE.VBLANK;
+  emu.intFlags = INTERRUPT_TYPE.VBLANK;
+  emu.cpu.interruptMasterEnabled = false;
+
+  emu.cpu.step();
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.b).toBe(0x01);
+  expect(emu.cpu.registers.pc).toBe(0x0101);
+});
+
+test('RETI enables IME immediately after restoring PC', () => {
+  const emu = createCpu(0xd9);
+  emu.cpu.registers.sp = 0xfffc;
+  emu.busWrite(0xfffc, 0x34);
+  emu.busWrite(0xfffd, 0x12);
+
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.pc).toBe(0x1234);
+  expect(emu.cpu.interruptMasterEnabled).toBe(true);
+  expect(emu.cpu.interruptMasterEnablingCountdown).toBe(0);
+});
+
+test('STOP consumes its padding byte before pausing', () => {
+  const emu = createCpu(0x10, 0x00);
+
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.pc).toBe(0x0102);
+  expect(emu.paused).toBe(true);
+});

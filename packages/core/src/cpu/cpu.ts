@@ -41,6 +41,7 @@ export class CPU {
   private _memoryDestination: number = 0;
   public destinationIsMemory: boolean = false;
   public halted: boolean = false;
+  public haltBug: boolean = false;
 
   public interruptMasterEnabled: boolean = false;
   public interruptMasterEnablingCountdown: number = 0;
@@ -54,6 +55,7 @@ export class CPU {
     this.registers.init();
 
     this.halted = false;
+    this.haltBug = false;
     this.interruptMasterEnabled = false;
     this.interruptMasterEnablingCountdown = 0;
   }
@@ -115,7 +117,11 @@ export class CPU {
     this.opcode = this.emulator.busRead(this.registers.pc);
     // fetch opcode 1 cycle
     this.emulator.tick(1);
-    this.registers.pc++;
+    if (this.haltBug) {
+      this.haltBug = false;
+    } else {
+      this.registers.pc++;
+    }
     this.instruction = instructionMap[this.opcode];
 
     if (!this.instruction) {
