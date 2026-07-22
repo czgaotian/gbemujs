@@ -8,11 +8,10 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "test": "pnpm --filter core test",
-    "doctor": "pnpm --filter cli run doctor"
+    "run": "pnpm --filter cli run start"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
-    "cross-env": "^7.0.3",
     "typescript": "^5.7.3"
   }
 }

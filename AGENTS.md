@@ -25,7 +25,7 @@ pnpm --filter core test      # Run core tests only
 pnpm --filter web test       # Run web tests only
 
 # Run CLI with ROM (requires Bun runtime)
-pnpm doctor <path-to-rom>    # Run ROM with Gameboy Doctor integration
+pnpm run <path-to-rom>       # Run ROM with the CLI
 
 # Run single test file
 pnpm --filter core test <test-file>
@@ -90,18 +90,6 @@ The `EventBus` (`event/index.ts`) provides loose coupling between components:
 
 - `SERIAL`: Serial output events
 - `FRAME_UPDATE`: New frame ready for display
-- `DOCTOR_LOG`: Debug logging for Gameboy Doctor integration
-
-## Gameboy Doctor Integration
-
-The emulator integrates with [Gameboy Doctor](https://github.com/robert/gameboy-doctor) for debugging:
-
-```bash
-# Set environment variable and run
-DOCTOR_ENV=true pnpm doctor <rom>
-```
-
-Doctor logs are emitted via the DOCTOR_LOG event when `DOCTOR_ENV=true`.
 
 ## Development Notes
 
@@ -139,4 +127,3 @@ Tests use Vitest and are located in `packages/core/test/`. Current test coverage
 
 - [GameBoy CPU (LR35902) instruction set](https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html)
 - [GameBoy Pan Docs](https://gbdev.io/pandocs/)
-- [Gameboy Doctor](https://github.com/robert/gameboy-doctor)

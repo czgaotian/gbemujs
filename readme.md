@@ -2,10 +2,6 @@
 
 A GameBoy emulator implemented using TypeScript.
 
-## Debug
-
-use [Gameboy Doctor](https://github.com/robert/gameboy-doctor) to debug.
-
 ## References
 
 [Gameboy CPU (LR35902) instruction set](https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html)

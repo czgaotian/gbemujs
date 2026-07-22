@@ -569,4 +569,3 @@ if (tile_x_begin + i < 0) {
 - [从零开始实现GameBoy模拟器 #7 PPU](https://zhuanlan.zhihu.com/p/681800791)
 - [从零开始实现GameBoy模拟器 #8 绘制背景和窗口](https://zhuanlan.zhihu.com/p/682148896)
 - [从零开始实现GameBoy模拟器 #9 绘制精灵](https://zhuanlan.zhihu.com/p/682604015)
-- [Gameboy Doctor](https://github.com/robert/gameboy-doctor)

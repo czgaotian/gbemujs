@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { GameBoy } from '@gbjs/core/emu/emu';
-import { SERIAL, DOCTOR_LOG } from '@gbjs/core/event';
+import { SERIAL } from '@gbjs/core/event';
 
 // running in
 function main() {
@@ -31,11 +31,7 @@ function main() {
       process.stdout.write(text);
     });
 
-    // console.log(`Starting emulation for ${path.basename(romPath)}...`);
     gameBoy.start(romData);
-    // gameBoy.on(DOCTOR_LOG, (data: string) => {
-    //   console.log(data);
-    // });
   } catch (error) {
     console.error('Failed to load or run ROM:', error);
     process.exit(1);

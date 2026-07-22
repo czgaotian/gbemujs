@@ -7,7 +7,6 @@
 - [Instruction Test](https://github.com/copy/gameboy-cpu-test)
 
 ## 调试工具
-- [Gameboy Doctor](https://github.com/robert/gameboy-doctor)
 - [BGB Debugger](https://bgb.bircd.org/)
 - [Emulicious](https://emulicious.net/)
 
