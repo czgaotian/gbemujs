@@ -6,169 +6,12 @@ import {
   Flag,
 } from '../types';
 import { CPU } from './cpu';
+import { executeCb } from './cb';
 
 function NOP() {}
 
 function NONE() {
   console.log('INVALID INSTRUCTION!\n');
-}
-
-const registerLookup = [RT.B, RT.C, RT.D, RT.E, RT.H, RT.L, RT.HL, RT.A];
-
-function decodeRegister(reg: number) {
-  if (reg > 0b111) {
-    return RT.NONE;
-  }
-
-  return registerLookup[reg];
-}
-
-export function CB(this: CPU) {
-  const op = this.fetchedData;
-  const reg = decodeRegister(op & 0b111);
-  const bit = (op >>> 3) & 0b111; // 被操作的位或移位操作类型
-  const bitOperation = (op >>> 6) & 0b11; // 操作类型（位测试、复位、置位或移位）
-  let value = this.readRegister8Bit(reg);
-
-  if (reg === RT.HL) {
-    this.emulator.tick(1); // (HL) 操作读取内存消耗 1 个周期
-  }
-
-  switch (bitOperation) {
-    case 1:
-      // BIT 位测试 测试寄存器值的指定位是否为 0，设置标志位
-      this.setFlags(!(value & (1 << bit)), 0, 1, -1);
-      return;
-
-    case 2:
-      // RST 位复位
-      value &= ~(1 << bit);
-      this.setRegister8Bit(reg, value);
-      if (reg === RT.HL) {
-        this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-      }
-      return;
-
-    case 3:
-      // SET 位置位
-      value |= 1 << bit;
-      this.setRegister8Bit(reg, value);
-      if (reg === RT.HL) {
-        this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-      }
-      return;
-  }
-
-  // 其他情况, 根据 bit 值执行具体移位操作。
-  const flagC = this.registers.flagC;
-
-  switch (bit) {
-    case 0:
-      {
-        // RLC 带进位循环左移
-        const setC = !!(value & (1 << 7));
-        const result = ((value << 1) & 0xff) | (setC ? 1 : 0);
-        this.setRegister8Bit(reg, result);
-        if (reg === RT.HL) {
-          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-        }
-        this.setFlags(result === 0, false, false, setC);
-      }
-      return;
-
-    case 1:
-      {
-        // RRC /带进位循环右移
-        const old = value;
-        value = ((value >>> 1) & 0xff) | ((old & 1) << 7);
-        this.setRegister8Bit(reg, value);
-        if (reg === RT.HL) {
-          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-        }
-        this.setFlags(value === 0, false, false, !!(old & 1));
-      }
-      return;
-
-    case 2:
-      {
-        // RL 通过进位标志循环左移
-        const c = !!(value & 0x80);
-        value = ((value << 1) & 0xff) | flagC;
-        this.setRegister8Bit(reg, value);
-        if (reg === RT.HL) {
-          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-        }
-        this.setFlags(value === 0, false, false, c);
-      }
-      return;
-
-    case 3:
-      {
-        // RR  通过进位标志循环右移
-        const c = !!(value & 1);
-        value = ((value >>> 1) & 0xff) | (flagC << 7);
-        this.setRegister8Bit(reg, value);
-        if (reg === RT.HL) {
-          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-        }
-        this.setFlags(value === 0, false, false, c);
-      }
-      return;
-
-    case 4:
-      {
-        // SLA 算数左移
-        const c = !!(value & 0x80);
-        value = (value << 1) & 0xff;
-        this.setRegister8Bit(reg, value);
-        if (reg === RT.HL) {
-          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-        }
-        this.setFlags(value === 0, false, false, c);
-      }
-      return;
-
-    case 5:
-      {
-        // SRA 算术右移
-        const c = !!(value & 1);
-        value = (value & 0x80) | ((value >> 1) & 0x7f);
-        this.setRegister8Bit(reg, value);
-        if (reg === RT.HL) {
-          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-        }
-        this.setFlags(value === 0, false, false, c);
-      }
-      return;
-
-    case 6:
-      {
-        // SWAP
-        value = ((value & 0xf0) >>> 4) | ((value & 0xf) << 4);
-        this.setRegister8Bit(reg, value);
-        if (reg === RT.HL) {
-          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-        }
-        this.setFlags(value === 0, false, false, false);
-      }
-      return;
-
-    case 7:
-      {
-        // SRL 逻辑右移
-        const old = value;
-        value = value >>> 1;
-        this.setRegister8Bit(reg, value);
-        if (reg === RT.HL) {
-          this.emulator.tick(1); // (HL) 操作写入内存消耗 1 个周期
-        }
-        this.setFlags(value === 0, false, false, !!(old & 1));
-      }
-      return;
-  }
-
-  console.log(`ERROR: INVALID CB: ${op.toString(16)}`);
-  NONE.call(this);
 }
 
 function RLCA(this: CPU) {
@@ -639,7 +482,7 @@ function CCF(this: CPU) {
 export const processorMap: Record<IT, Function> = {
   [IT.NONE]: NONE,
   [IT.NOP]: NOP,
-  [IT.CB]: CB,
+  [IT.CB]: executeCb,
   [IT.RLCA]: RLCA,
   [IT.RRCA]: RRCA,
   [IT.RLA]: RLA,

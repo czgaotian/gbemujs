@@ -86,3 +86,48 @@ test('DAA adjusts subtraction-mode values', () => {
   expect(emu.cpu.registers.a).toBe(0x09);
   expect(emu.cpu.registers.f).toBe(0x40);
 });
+
+test('CB RLC B rotates through bit 7 and updates flags', () => {
+  const emu = createCpu(0xcb, 0x00);
+  emu.cpu.registers.b = 0x80;
+
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.b).toBe(0x01);
+  expect(emu.cpu.registers.f).toBe(0x10);
+});
+
+test('CB BIT 0, (HL) preserves carry and does not write memory', () => {
+  const emu = createCpu(0xcb, 0x46);
+  emu.cpu.registers.hl = 0xc000;
+  emu.wram[0] = 0x00;
+  emu.cpu.registers.f = 0x10;
+
+  emu.cpu.step();
+
+  expect(emu.wram[0]).toBe(0x00);
+  expect(emu.cpu.registers.f).toBe(0xb0);
+});
+
+test('CB RES 0, (HL) clears the selected memory bit without changing flags', () => {
+  const emu = createCpu(0xcb, 0x86);
+  emu.cpu.registers.hl = 0xc000;
+  emu.wram[0] = 0xff;
+  emu.cpu.registers.f = 0x10;
+
+  emu.cpu.step();
+
+  expect(emu.wram[0]).toBe(0xfe);
+  expect(emu.cpu.registers.f).toBe(0x10);
+});
+
+test('CB SWAP A exchanges nibbles and clears flags', () => {
+  const emu = createCpu(0xcb, 0x37);
+  emu.cpu.registers.a = 0xf0;
+  emu.cpu.registers.f = 0xf0;
+
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.a).toBe(0x0f);
+  expect(emu.cpu.registers.f).toBe(0x00);
+});
