@@ -15,8 +15,6 @@ importers:
         specifier: ^5.7.3
         version: 5.7.3
 
-  packages/cli: {}
-
   packages/core:
     devDependencies:
       vitest:

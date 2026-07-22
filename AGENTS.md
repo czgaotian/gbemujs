@@ -8,7 +8,6 @@ GBJS is a GameBoy emulator implemented in TypeScript. The project is organized a
 
 - `@gbjs/core` - Core emulation engine (CPU, PPU, APU, memory bus, cartridge system)
 - `@gbjs/web` - Web-based frontend with custom Web Component UI
-- `@gbjs/cli` - Command-line interface for running ROMs with debugging output
 
 ## Common Commands
 
@@ -23,9 +22,6 @@ pnpm dev
 pnpm test                    # Run all core tests
 pnpm --filter core test      # Run core tests only
 pnpm --filter web test       # Run web tests only
-
-# Run CLI with ROM (requires Bun runtime)
-pnpm run <path-to-rom>       # Run ROM with the CLI
 
 # Run single test file
 pnpm --filter core test <test-file>

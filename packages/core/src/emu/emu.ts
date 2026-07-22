@@ -94,22 +94,6 @@ export class GameBoy {
         requestAnimationFrame(browserLoop);
       };
       requestAnimationFrame(browserLoop);
-    } else if (
-      typeof process !== 'undefined' &&
-      process.versions != null &&
-      process.versions.node != null
-    ) {
-      // Node.js
-      const nodeLoop = (prevTime: number) => {
-        const currentTime = Date.now();
-        const deltaTime = Math.min(
-          (currentTime - prevTime) / 1000,
-          MAX_TIME_STEP
-        );
-        this.update(deltaTime);
-        setImmediate(() => nodeLoop(currentTime));
-      };
-      nodeLoop(Date.now());
     }
   }
 

@@ -7,8 +7,7 @@
   "license": "GPL-3.0",
   "scripts": {
     "dev": "pnpm --filter web dev",
-    "test": "pnpm --filter core test",
-    "run": "pnpm --filter cli run start"
+    "test": "pnpm --filter core test"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
