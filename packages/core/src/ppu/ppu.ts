@@ -125,8 +125,9 @@ export class PPU {
       this.dmaStartDelay--;
       return;
     }
+    // DMA reads 160 consecutive bytes from the source page selected by FF46.
     this.emulator.oam[this.dmaOffset] = this.emulator.busRead(
-      (this.dma << 8) & (0xff00 + this.dmaOffset)
+      (this.dma << 8) + this.dmaOffset
     );
     this.dmaOffset++;
     this.dmaActive = this.dmaOffset < 0xa0;
@@ -151,12 +152,19 @@ export class PPU {
         this.windowLine = 0;
         this.lineCycles = 0;
       }
+      if (address === 0xff40 && !this.enabled && bitTest(value, 7)) {
+        // Enabling LCD restarts the visible-frame timing at OAM scan.
+        this.PPUMode = PPU_MODE.OAM_SCAN;
+        this.lineCycles = 0;
+      }
       if (address === 0xff41) {
         this.lcds = (this.lcds & 0x07) | (value & 0xf8);
         return;
       }
       if (address === 0xff44) return;
       if (address === 0xff46) {
+        // Keep the selected DMA source page for subsequent transfer ticks.
+        this.dma = value;
         this.dmaActive = true;
         this.dmaOffset = 0;
         this.dmaStartDelay = 1;
@@ -376,7 +384,8 @@ export class PPU {
       const objPixel = this.objQueue.shift() as ObjectPixel;
 
       const bgColor = applyPalette(bgwPixel.color, bgwPixel.palette);
-      const drawObj = objPixel.color && (!objPixel.bgPriority || bgColor === 0);
+      // Sprite priority compares the unpaletted BG/window colour index.
+      const drawObj = objPixel.color && (!objPixel.bgPriority || bgwPixel.color === 0);
       const objColor = applyPalette(objPixel.color, objPixel.palette & 0xfc);
 
       const color = drawObj ? objColor : bgColor;

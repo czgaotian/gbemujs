@@ -90,8 +90,9 @@ function getBackgroundTile(ppu: PPU) {
   //   ppu.ly
   // );
   // the position of next pixel to fetch
-  const mapY = ppu.ly + ppu.scrollY;
-  const mapX = ppu.fetchX + ppu.scrollX;
+  // Background coordinates wrap across the 256×256 tilemap.
+  const mapY = (ppu.ly + ppu.scrollY) & 0xff;
+  const mapX = (ppu.fetchX + ppu.scrollX) & 0xff;
   // console.log('bg', 'x:', mapX, 'y:', mapY);
 
   // the address to index of tile
