@@ -98,6 +98,7 @@ export function tickHBlank(this: PPU) {
       }
       // swap back buffers
       this.currentBackBuffer = (this.currentBackBuffer + 1) % 2;
+      this.emulator.updateFrame();
     } else {
       this.PPUMode = PPU_MODE.OAM_SCAN;
       if (this.oamIntEnabled) {

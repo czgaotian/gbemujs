@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { GameBoy } from '../../src/emu/emu';
 import { PPU_MODE } from '../../src/types/ppu';
 
@@ -62,5 +62,20 @@ describe('PPU', () => {
     ppu.write(0xff40, ppu.lcdc | 0x80);
 
     expect(ppu.PPUMode).toBe(PPU_MODE.OAM_SCAN);
+  });
+
+  test('emits a display frame when the PPU enters VBlank', () => {
+    const gameBoy = createGameBoy();
+    const updateFrame = vi.spyOn(gameBoy, 'updateFrame');
+    Object.assign(gameBoy.ppu, {
+      ly: 143,
+      lineCycles: 456,
+      PPUMode: PPU_MODE.HBLANK,
+    });
+
+    gameBoy.ppu.tick();
+
+    expect(gameBoy.ppu.PPUMode).toBe(PPU_MODE.VBLANK);
+    expect(updateFrame).toHaveBeenCalledTimes(1);
   });
 });

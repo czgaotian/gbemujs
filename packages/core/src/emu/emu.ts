@@ -127,7 +127,6 @@ export class GameBoy {
         this.emit(SERIAL, [...this.serial.outputBuffer]);
       }
     }
-    this.updateFrame();
   }
 
   updateFrame() {
