@@ -96,7 +96,7 @@ export function tickHBlank(this: PPU) {
       if (this.vblankIntEnabled) {
         this.emulator.intFlags |= INTERRUPT_TYPE.LCD_STAT;
       }
-      // swap back buffers
+      // VBlank 开始时切换绘制缓冲区；切换后发布刚完成绘制的上一帧。
       this.currentBackBuffer = (this.currentBackBuffer + 1) % 2;
       this.emulator.updateFrame();
     } else {

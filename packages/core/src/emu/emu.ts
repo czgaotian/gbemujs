@@ -89,6 +89,7 @@ export class GameBoy {
     ) {
       // browser
       const browserLoop = (currentTime: number) => {
+        // RAF 时间戳以毫秒为单位；模拟器时钟以秒为单位，且最多补偿 125ms。
         const deltaTime = Math.min(
           (currentTime - this.lastTime) / 1000,
           MAX_TIME_STEP
@@ -99,6 +100,7 @@ export class GameBoy {
       };
       const scheduleBrowserLoop = () => {
         if (this.animationFrameId !== undefined) {
+          // 重新加载 ROM 时取消上一条循环，避免多个 RAF 回调同时推进模拟器。
           cancelAnimationFrame(this.animationFrameId);
         }
         this.animationFrameId = requestAnimationFrame(browserLoop);
