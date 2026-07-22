@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { GameBoy } from '../../src/emu/emu';
+import { INTERRUPT_TYPE } from '../../src/types';
 
 const createCpu = (...bytes: number[]): GameBoy => {
   const emu = new GameBoy();
@@ -130,4 +131,73 @@ test('CB SWAP A exchanges nibbles and clears flags', () => {
 
   expect(emu.cpu.registers.a).toBe(0x0f);
   expect(emu.cpu.registers.f).toBe(0x00);
+});
+
+test('JR NZ takes a signed offset only when Z is clear', () => {
+  const emu = createCpu(0x20, 0xfe);
+  emu.cpu.registers.f = 0x00;
+
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.pc).toBe(0x0100);
+});
+
+test('JR NZ does not take its offset when Z is set', () => {
+  const emu = createCpu(0x20, 0xfe);
+  emu.cpu.registers.f = 0x80;
+
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.pc).toBe(0x0102);
+});
+
+test('CALL pushes its return address for RET to restore', () => {
+  const emu = createCpu(0xcd, 0x05, 0x01, 0x00, 0x00, 0xc9);
+
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.pc).toBe(0x0105);
+  expect(emu.cpu.registers.sp).toBe(0xfffc);
+  expect(emu.busRead(0xfffc)).toBe(0x03);
+  expect(emu.busRead(0xfffd)).toBe(0x01);
+
+  emu.cpu.step();
+
+  expect(emu.cpu.registers.pc).toBe(0x0103);
+  expect(emu.cpu.registers.sp).toBe(0xfffe);
+});
+
+test('EI enables IME after the following instruction', () => {
+  const emu = createCpu(0xfb, 0x00);
+
+  emu.cpu.step();
+  expect(emu.cpu.interruptMasterEnabled).toBe(false);
+
+  emu.cpu.step();
+  expect(emu.cpu.interruptMasterEnabled).toBe(true);
+});
+
+test('DI cancels a pending EI enable', () => {
+  const emu = createCpu(0xfb, 0xf3, 0x00);
+
+  emu.cpu.step();
+  emu.cpu.step();
+  emu.cpu.step();
+
+  expect(emu.cpu.interruptMasterEnabled).toBe(false);
+  expect(emu.cpu.interruptMasterEnablingCountdown).toBe(0);
+});
+
+test('HALT wakes when an enabled interrupt becomes pending', () => {
+  const emu = createCpu(0x76);
+  emu.cpu.interruptMasterEnabled = true;
+
+  emu.cpu.step();
+  expect(emu.cpu.halted).toBe(true);
+
+  emu.intEnableFlags = INTERRUPT_TYPE.VBLANK;
+  emu.intFlags = INTERRUPT_TYPE.VBLANK;
+  emu.cpu.step();
+
+  expect(emu.cpu.halted).toBe(false);
 });
