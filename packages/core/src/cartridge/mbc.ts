@@ -18,8 +18,10 @@ export abstract class MemoryBankController {
     return this.ram;
   }
 
-  public setRamData(data: Uint8Array): void {
+  public setRamData(data: Uint8Array): boolean {
+    if (data.length !== this.ram.length) return false;
     this.ram.set(data);
+    return true;
   }
 }
 

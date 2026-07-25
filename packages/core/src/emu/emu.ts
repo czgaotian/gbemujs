@@ -57,7 +57,6 @@ export class GameBoy {
   public loadROM(data: Uint8Array): void {
     this.init();
     this.cartridge.loadROM(data);
-    this.loadRAMData();
     console.log('Loaded cartridge:', this.cartridge.getCartridgeInfo());
   }
 
@@ -81,8 +80,9 @@ export class GameBoy {
     this.intEnableFlags = 0;
   }
 
-  public start(data: Uint8Array): void {
+  public start(data: Uint8Array, ramData?: Uint8Array): void {
     this.loadROM(data);
+    if (ramData) this.loadRAMData(ramData);
 
     if (
       typeof window !== 'undefined' &&
@@ -160,10 +160,14 @@ export class GameBoy {
   }
 
   // 加载持久化的存档数据
-  public loadRAMData(): void {}
+  public loadRAMData(data: Uint8Array): boolean {
+    return this.cartridge.loadRAMData(data);
+  }
 
   // 获取要持久化的存档数据
-  public saveRAMData(): void {}
+  public saveRAMData(): Uint8Array | null {
+    return this.cartridge.saveRAMData();
+  }
 
   /**
    * @param address u16

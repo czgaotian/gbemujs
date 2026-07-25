@@ -4,9 +4,11 @@ import { registerFDisplay } from '@gbjs/core/utils/cpu';
 import { SERIAL, FRAME_UPDATE } from '@gbjs/core/event';
 import { cssString, domString } from './template';
 import { updateJoypadKey } from './key-input';
+import { loadRAMData, saveRAMData } from './save-data';
 
 export class GameBoyDom extends HTMLElement {
   gameBoy: GameBoy;
+  private fileName: string | null = null;
 
   constructor() {
     super();
@@ -31,9 +33,12 @@ export class GameBoyDom extends HTMLElement {
       const reader = new FileReader();
       reader.onload = (e: Event) => {
         const romData = new Uint8Array(
-          (e.target as FileReader).result as ArrayBuffer
+          (e.target as FileReader).result as ArrayBuffer,
         );
-        this.gameBoy.start(romData);
+        this.persistRAMData();
+        const ramData = loadRAMData(localStorage, file.name);
+        this.fileName = file.name;
+        this.gameBoy.start(romData, ramData ?? undefined);
       };
       reader.readAsArrayBuffer(file);
     });
@@ -63,11 +68,11 @@ export class GameBoyDom extends HTMLElement {
 
     this.gameBoy.on(SERIAL, (data) => {
       const serialOutput = shadow.getElementById(
-        'serial-output'
+        'serial-output',
       ) as HTMLPreElement;
       const text = data.reduce(
         (acc, curr) => acc + String.fromCharCode(curr),
-        ''
+        '',
       );
       serialOutput.textContent = text;
     });
@@ -89,6 +94,15 @@ export class GameBoyDom extends HTMLElement {
     const handleKeyEvent = (e: KeyboardEvent, isPressed: boolean) => {
       updateJoypadKey(this.gameBoy.joypad, e.code, isPressed);
     };
+  }
+
+  disconnectedCallback() {
+    this.persistRAMData();
+  }
+
+  private persistRAMData(): void {
+    if (this.fileName === null) return;
+    saveRAMData(localStorage, this.fileName, this.gameBoy.saveRAMData());
   }
 }
 
@@ -148,7 +162,7 @@ function tileRender(canvas: HTMLCanvasElement, emulator: GameBoy): void {
 
 function screenRender(
   canvas: HTMLCanvasElement,
-  frame: Uint8ClampedArray
+  frame: Uint8ClampedArray,
 ): void {
   const ctx = canvas.getContext('2d');
   const imgData = new ImageData(frame, PPU_XRES, PPU_YRES);

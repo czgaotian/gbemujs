@@ -88,6 +88,7 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
   }
 
   if (address <= 0x7fff) {
+    this.cartridge.write(address, value);
     return;
   }
   if (address >= 0x8000 && address <= 0x9fff) {
@@ -172,7 +173,7 @@ export function busRead16(this: GameBoy, address: number): number {
 export function busWrite16(
   this: GameBoy,
   address: number,
-  value: number
+  value: number,
 ): void {
   this.busWrite(address + 1, (value >>> 8) & 0xff);
   this.busWrite(address, value & 0xff);

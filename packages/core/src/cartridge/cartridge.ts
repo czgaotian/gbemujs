@@ -64,6 +64,7 @@ export class Cartridge {
       case CARTRIDGE_TYPE.MBC2:
       case CARTRIDGE_TYPE.MBC2_BATTERY:
         this.mbc = new MBC2(this.rom);
+        break;
 
       // TODO: 实现其他MBC类型
       default:
@@ -91,6 +92,16 @@ export class Cartridge {
     } else {
       throw new Error('MBC not initialized');
     }
+  }
+
+  public loadRAMData(data: Uint8Array): boolean {
+    if (!this.isCartridgeBattery || !this.mbc) return false;
+    return this.mbc.setRamData(data);
+  }
+
+  public saveRAMData(): Uint8Array | null {
+    if (!this.isCartridgeBattery || !this.mbc) return null;
+    return this.mbc.getRamData().slice();
   }
 
   get isCartridgeBattery(): boolean {
