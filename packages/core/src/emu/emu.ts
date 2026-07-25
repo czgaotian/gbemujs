@@ -6,7 +6,7 @@ import { Joypad } from '../joypad/joypad';
 import { Cartridge } from '../cartridge/cartridge';
 import { Timer } from '../timer/timer';
 import { Serial } from '../serial/serial';
-import { INTERRUPT_TYPE as IT } from '../types';
+import { INTERRUPT_TYPE as IT, type LoopController } from '../types';
 import { EventBus, SERIAL, FRAME_UPDATE } from '../event';
 import { PPU_XRES, PPU_YRES } from '../constants/ppu';
 import { TICKS_PER_SEC, MAX_TIME_STEP } from '../constants';
@@ -22,8 +22,10 @@ export class GameBoy {
   public timer: Timer;
   public serial: Serial;
 
-  public lastTime: number;
-  public animationFrameId: number | undefined;
+  private lastTime = 0;
+  private loopHandle: unknown;
+  private loopGeneration = 0;
+  private isRunning = false;
   public clockCycles: number = 0;
   public clockSpeedScale: number = 1;
   public paused: boolean = false;
@@ -37,7 +39,7 @@ export class GameBoy {
   public intFlags: number;
   public intEnableFlags: number;
 
-  constructor() {
+  constructor(private readonly loopController: LoopController) {
     this.cartridge = new Cartridge();
     this.cpu = new CPU(this);
     this.ppu = new PPU(this);
@@ -45,8 +47,6 @@ export class GameBoy {
     this.joypad = new Joypad(this);
     this.timer = new Timer(this);
     this.serial = new Serial(this);
-
-    this.lastTime = performance.now();
 
     // 0xFF0F - The interruption flags.
     this.intFlags = IT.NONE;
@@ -63,8 +63,6 @@ export class GameBoy {
   public init(): void {
     this.paused = false;
     this.clockCycles = 0;
-    this.lastTime = performance.now();
-
     this.cpu.init();
     this.ppu.init();
     this.joypad.init();
@@ -84,34 +82,44 @@ export class GameBoy {
     this.loadROM(data);
     if (ramData) this.loadRAMData(ramData);
 
-    if (
-      typeof window !== 'undefined' &&
-      typeof window.document !== 'undefined'
-    ) {
-      // browser
-      const browserLoop = (currentTime: number) => {
-        // RAF 时间戳以毫秒为单位；模拟器时钟以秒为单位，且最多补偿 125ms。
-        const deltaTime = Math.min(
-          (currentTime - this.lastTime) / 1000,
-          MAX_TIME_STEP,
-        );
-        this.lastTime = currentTime;
-        this.update(deltaTime);
-        scheduleBrowserLoop();
-      };
-      const scheduleBrowserLoop = () => {
-        if (this.animationFrameId !== undefined) {
-          // 重新加载 ROM 时取消上一条循环，避免多个 RAF 回调同时推进模拟器。
-          cancelAnimationFrame(this.animationFrameId);
-        }
-        this.animationFrameId = requestAnimationFrame(browserLoop);
-      };
-      scheduleBrowserLoop();
-    }
+    this.isRunning = true;
+    this.loopGeneration += 1;
+    this.lastTime = this.loopController.now();
+    this.scheduleLoop();
   }
 
   public close(): void {
-    this.saveRAMData();
+    this.isRunning = false;
+    this.loopGeneration += 1;
+    if (this.loopHandle !== undefined) {
+      this.loopController.cancel(this.loopHandle);
+      this.loopHandle = undefined;
+    }
+  }
+
+  private readonly runLoop = (generation: number): void => {
+    if (!this.isRunning || generation !== this.loopGeneration) return;
+
+    const currentTime = this.loopController.now();
+    const deltaTime = Math.min(
+      (currentTime - this.lastTime) / 1000,
+      MAX_TIME_STEP,
+    );
+    this.lastTime = currentTime;
+    this.update(deltaTime);
+    if (this.isRunning && generation === this.loopGeneration) {
+      this.scheduleLoop();
+    }
+  };
+
+  private scheduleLoop(): void {
+    if (this.loopHandle !== undefined) {
+      this.loopController.cancel(this.loopHandle);
+    }
+    const generation = this.loopGeneration;
+    this.loopHandle = this.loopController.schedule(() =>
+      this.runLoop(generation),
+    );
   }
 
   public pause(): void {
@@ -165,8 +173,8 @@ export class GameBoy {
   }
 
   // 获取要持久化的存档数据
-  public saveRAMData(): Uint8Array | null {
-    return this.cartridge.saveRAMData();
+  public getRAMData(): Uint8Array | null {
+    return this.cartridge.getRAMData();
   }
 
   /**

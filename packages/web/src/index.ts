@@ -5,6 +5,7 @@ import { SERIAL, FRAME_UPDATE } from '@gbjs/core/event';
 import { cssString, domString } from './template';
 import { updateJoypadKey } from './key-input';
 import { loadRAMData, saveRAMData } from './save-data';
+import { browserLoopController } from './browser-loop-controller';
 
 export class GameBoyDom extends HTMLElement {
   gameBoy: GameBoy;
@@ -12,7 +13,7 @@ export class GameBoyDom extends HTMLElement {
 
   constructor() {
     super();
-    this.gameBoy = new GameBoy();
+    this.gameBoy = new GameBoy(browserLoopController);
   }
 
   connectedCallback() {
@@ -98,11 +99,12 @@ export class GameBoyDom extends HTMLElement {
 
   disconnectedCallback() {
     this.persistRAMData();
+    this.gameBoy.close();
   }
 
   private persistRAMData(): void {
     if (this.fileName === null) return;
-    saveRAMData(localStorage, this.fileName, this.gameBoy.saveRAMData());
+    saveRAMData(localStorage, this.fileName, this.gameBoy.getRAMData());
   }
 }
 

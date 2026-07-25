@@ -2,6 +2,12 @@ import { expect, test } from 'vitest';
 import { GameBoy } from '../../src/emu/emu';
 import { CARTRIDGE_TYPE } from '../../src/types';
 
+const loopController = {
+  now: () => 0,
+  schedule: () => 0,
+  cancel: () => {},
+};
+
 function createBatteryRom(): Uint8Array {
   const rom = new Uint8Array(0x8000);
   rom[0x0147] = CARTRIDGE_TYPE.MBC1_RAM_BATTERY;
@@ -16,22 +22,22 @@ function createBatteryRom(): Uint8Array {
 }
 
 test('imports and exports cartridge RAM through the GameBoy API', () => {
-  const gameBoy = new GameBoy();
+  const gameBoy = new GameBoy(loopController);
   gameBoy.loadROM(createBatteryRom());
 
   const saved = new Uint8Array(8 * 1024);
   saved[0] = 0x44;
 
   expect(gameBoy.loadRAMData(saved)).toBe(true);
-  expect(gameBoy.saveRAMData()).toEqual(saved);
+  expect(gameBoy.getRAMData()).toEqual(saved);
 });
 
 test('persists RAM written through the memory bus', () => {
-  const gameBoy = new GameBoy();
+  const gameBoy = new GameBoy(loopController);
   gameBoy.loadROM(createBatteryRom());
 
   gameBoy.busWrite(0x0000, 0x0a);
   gameBoy.busWrite(0xa000, 0xa5);
 
-  expect(gameBoy.saveRAMData()?.[0]).toBe(0xa5);
+  expect(gameBoy.getRAMData()?.[0]).toBe(0xa5);
 });

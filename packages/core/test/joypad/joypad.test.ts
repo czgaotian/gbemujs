@@ -2,15 +2,21 @@ import { expect, test } from 'vitest';
 import { GameBoy } from '../../src/emu/emu';
 import { INTERRUPT_TYPE } from '../../src/types';
 
+const loopController = {
+  now: () => 0,
+  schedule: () => 0,
+  cancel: () => {},
+};
+
 test('P1 resets to the idle readable value', () => {
-  const gameBoy = new GameBoy();
+  const gameBoy = new GameBoy(loopController);
   gameBoy.init();
 
   expect(gameBoy.busRead(0xff00)).toBe(0xff);
 });
 
 test('a selected action button reads low and requests the Joypad interrupt', () => {
-  const gameBoy = new GameBoy();
+  const gameBoy = new GameBoy(loopController);
   gameBoy.init();
   gameBoy.busWrite(0xff00, 0x10);
 
@@ -24,7 +30,7 @@ test('a selected action button reads low and requests the Joypad interrupt', () 
 });
 
 test('selecting a group containing a held button requests the Joypad interrupt', () => {
-  const gameBoy = new GameBoy();
+  const gameBoy = new GameBoy(loopController);
   gameBoy.init();
   gameBoy.joypad.a = true;
   gameBoy.joypad.update();

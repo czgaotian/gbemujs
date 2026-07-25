@@ -99,7 +99,7 @@ export class Cartridge {
     return this.mbc.setRamData(data);
   }
 
-  public saveRAMData(): Uint8Array | null {
+  public getRAMData(): Uint8Array | null {
     if (!this.isCartridgeBattery || !this.mbc) return null;
     return this.mbc.getRamData().slice();
   }

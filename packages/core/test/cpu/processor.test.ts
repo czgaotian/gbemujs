@@ -8,8 +8,14 @@ import {
 import { SBC, DAA, LD } from '../../src/cpu/processor';
 import { GameBoy } from '../../src/emu/emu';
 
+const loopController = {
+  now: () => 0,
+  schedule: () => 0,
+  cancel: () => {},
+};
+
 describe('processor', () => {
-  const emu = new GameBoy();
+  const emu = new GameBoy(loopController);
 
   beforeEach(() => {
     emu.cpu.registers.init();

@@ -2,8 +2,14 @@ import { expect, test } from 'vitest';
 import { GameBoy } from '../../src/emu/emu';
 import { INTERRUPT_TYPE } from '../../src/types';
 
+const loopController = {
+  now: () => 0,
+  schedule: () => 0,
+  cancel: () => {},
+};
+
 const createCpu = (...bytes: number[]): GameBoy => {
-  const emu = new GameBoy();
+  const emu = new GameBoy(loopController);
   const rom = new Uint8Array(0x8000);
   rom.set(bytes, 0x0100);
   let checksum = 0;

@@ -27,7 +27,7 @@ describe('cartridge RAM persistence', () => {
     const cartridge = createMbc1BatteryCartridge();
     cartridge.write(0xa000, 0xab);
 
-    const saved = cartridge.saveRAMData();
+    const saved = cartridge.getRAMData();
 
     expect(saved).toHaveLength(8 * 1024);
     expect(saved?.[0]).toBe(0xab);
@@ -52,7 +52,7 @@ describe('cartridge RAM persistence', () => {
     const cartridge = new Cartridge();
     cartridge.loadROM(createRom(CARTRIDGE_TYPE.MBC1_RAM, 0x02));
 
-    expect(cartridge.saveRAMData()).toBeNull();
+    expect(cartridge.getRAMData()).toBeNull();
     expect(cartridge.loadRAMData(new Uint8Array(8 * 1024))).toBe(false);
   });
 
@@ -66,6 +66,6 @@ describe('cartridge RAM persistence', () => {
 
     cartridge.write(0x0000, 0x0a);
     expect(cartridge.read(0xa000)).toBe(0xfb);
-    expect(cartridge.saveRAMData()).toEqual(saved);
+    expect(cartridge.getRAMData()).toEqual(saved);
   });
 });

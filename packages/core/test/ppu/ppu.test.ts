@@ -2,8 +2,14 @@ import { describe, expect, test, vi } from 'vitest';
 import { GameBoy } from '../../src/emu/emu';
 import { PPU_MODE } from '../../src/types/ppu';
 
+const loopController = {
+  now: () => 0,
+  schedule: () => 0,
+  cancel: () => {},
+};
+
 function createGameBoy() {
-  const gameBoy = new GameBoy();
+  const gameBoy = new GameBoy(loopController);
   gameBoy.init();
   return gameBoy;
 }
