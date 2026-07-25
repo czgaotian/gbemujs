@@ -1,92 +1,5 @@
-import { CARTRIDGE_TYPE, CartridgeInfo } from "../types";
-
-// 内存控制器基类
-abstract class MemoryBankController {
-  protected rom: Uint8Array;
-  protected ram: Uint8Array;
-  protected romBank: number = 1;
-  protected ramBank: number = 0;
-  protected ramEnabled: boolean = false;
-
-  constructor(rom: Uint8Array, ramSize: number) {
-    this.rom = rom;
-    this.ram = new Uint8Array(ramSize);
-  }
-
-  abstract readByte(address: number): number;
-  abstract writeByte(address: number, value: number): void;
-
-  public getRamData(): Uint8Array {
-    return this.ram;
-  }
-
-  public loadRamData(data: Uint8Array): void {
-    this.ram.set(data);
-  }
-}
-
-// ROM-only 实现
-class ROMOnly extends MemoryBankController {
-  readByte(address: number): number {
-    if (address < 0x8000) {
-      return this.rom[address];
-    }
-    return 0xff;
-  }
-
-  writeByte(address: number, value: number): void {
-    // ROM-only 不支持写入
-  }
-}
-
-// MBC1 实现
-class MBC1 extends MemoryBankController {
-  private bankingMode: number = 0;
-
-  readByte(address: number): number {
-    if (address < 0x4000) {
-      // ROM Bank 00
-      return this.rom[address];
-    } else if (address < 0x8000) {
-      // ROM Bank 01-7F
-      const bankAddress = address - 0x4000 + this.romBank * 0x4000;
-      return this.rom[bankAddress];
-    } else if (address >= 0xa000 && address < 0xc000) {
-      // RAM Bank 00-03
-      if (!this.ramEnabled) return 0xff;
-      const ramAddress = address - 0xa000 + this.ramBank * 0x2000;
-      return this.ram[ramAddress];
-    }
-    return 0xff;
-  }
-
-  writeByte(address: number, value: number): void {
-    if (address < 0x2000) {
-      // RAM Enable
-      this.ramEnabled = (value & 0x0f) === 0x0a;
-    } else if (address < 0x4000) {
-      // ROM Bank Number
-      let bank = value & 0x1f;
-      if (bank === 0) bank = 1;
-      this.romBank = (this.romBank & 0x60) | bank;
-    } else if (address < 0x6000) {
-      // RAM Bank Number or Upper Bits of ROM Bank Number
-      if (this.bankingMode === 0) {
-        this.romBank = (this.romBank & 0x1f) | ((value & 0x03) << 5);
-      } else {
-        this.ramBank = value & 0x03;
-      }
-    } else if (address < 0x8000) {
-      // Banking Mode Select
-      this.bankingMode = value & 0x01;
-    } else if (address >= 0xa000 && address < 0xc000) {
-      // RAM Bank 00-03
-      if (!this.ramEnabled) return;
-      const ramAddress = address - 0xa000 + this.ramBank * 0x2000;
-      this.ram[ramAddress] = value;
-    }
-  }
-}
+import { CARTRIDGE_TYPE, CartridgeInfo } from '../types';
+import { MemoryBankController, MBC1, MBC2, ROMOnly } from './mbc';
 
 export class Cartridge {
   private rom: Uint8Array = new Uint8Array(0);
@@ -94,7 +7,6 @@ export class Cartridge {
   private cartridgeInfo: CartridgeInfo | null = null;
 
   public loadROM(data: Uint8Array): void {
-
     this.rom = data;
     this.cartridgeInfo = this.parseCartridgeInfo();
 
@@ -103,8 +15,8 @@ export class Cartridge {
       checkSum = checkSum - this.rom[i] - 1;
     }
 
-    if ((checkSum & 0xFF) !== this.cartridgeInfo?.checksum) {
-      throw new Error("Invalid cartridge checksum");
+    if ((checkSum & 0xff) !== this.cartridgeInfo?.checksum) {
+      throw new Error('Invalid cartridge checksum');
     }
 
     this.initializeMBC();
@@ -113,12 +25,12 @@ export class Cartridge {
   private parseCartridgeInfo(): CartridgeInfo {
     const title = Array.from(this.rom.slice(0x134, 0x143))
       .map((c) => String.fromCharCode(c))
-      .join("")
-      .replace(/\0+$/, "");
+      .join('')
+      .replace(/\0+$/, '');
 
-    // RAM大小查找表
-    const ramSizes = [0, null, 8, 32, 128, 64];
-    const ramSize = ramSizes[this.rom[0x149]] || 0;
+    // RAM size header values are expressed in KiB; MBC RAM uses byte lengths.
+    const ramSizes = [0, 2, 8, 32, 128, 64].map((size) => size * 1024);
+    const ramSize = ramSizes[this.rom[0x149]] ?? 0;
 
     return {
       title: title,
@@ -142,17 +54,21 @@ export class Cartridge {
 
     switch (this.cartridgeInfo.type) {
       case CARTRIDGE_TYPE.ROM_ONLY:
-        this.mbc = new ROMOnly(this.rom, 0);
+        this.mbc = new ROMOnly(this.rom, 0); // ROM-only cartridges don't need an MBC
         break;
       case CARTRIDGE_TYPE.MBC1:
       case CARTRIDGE_TYPE.MBC1_RAM:
       case CARTRIDGE_TYPE.MBC1_RAM_BATTERY:
         this.mbc = new MBC1(this.rom, this.cartridgeInfo.ramSize);
         break;
+      case CARTRIDGE_TYPE.MBC2:
+      case CARTRIDGE_TYPE.MBC2_BATTERY:
+        this.mbc = new MBC2(this.rom);
+
       // TODO: 实现其他MBC类型
       default:
         throw new Error(
-          `Unsupported cartridge type: ${this.cartridgeInfo.type}`
+          `Unsupported cartridge type: ${this.cartridgeInfo.type}`,
         );
     }
   }
@@ -161,11 +77,26 @@ export class Cartridge {
     return this.cartridgeInfo;
   }
 
-  // 用于带电池的卡带存档
-  public getSaveData(): Uint8Array | null {
-    if (!this.cartridgeInfo) return null;
+  public read(address: number) {
+    if (this.mbc) {
+      return this.mbc.read(address);
+    } else {
+      throw new Error('MBC not initialized');
+    }
+  }
 
-    const hasBattery = [
+  public write(address: number, value: number) {
+    if (this.mbc) {
+      this.mbc.write(address, value);
+    } else {
+      throw new Error('MBC not initialized');
+    }
+  }
+
+  get isCartridgeBattery(): boolean {
+    if (!this.cartridgeInfo) return false;
+
+    const cartridgeTypeHasBattery = [
       CARTRIDGE_TYPE.MBC1_RAM_BATTERY,
       CARTRIDGE_TYPE.MBC2_BATTERY,
       CARTRIDGE_TYPE.ROM_RAM_BATTERY,
@@ -174,28 +105,8 @@ export class Cartridge {
       CARTRIDGE_TYPE.MBC3_RAM_BATTERY,
       CARTRIDGE_TYPE.MBC5_RAM_BATTERY,
       CARTRIDGE_TYPE.MBC5_RUMBLE_RAM_BATTERY,
-    ].includes(this.cartridgeInfo.type);
+    ];
 
-    if (hasBattery && this.mbc) {
-      return this.mbc.getRamData();
-    }
-
-    return null;
-  }
-
-  public loadSaveData(data: Uint8Array): void {
-    this.mbc?.loadRamData(data);
-  }
-
-  public read(address: number) {
-    if (address <= 0x7fff) {
-      return this.rom[address];
-    }
-
-    return 0xff;
-  }
-
-  public write(address: number, value: number) {
-    // throw new Error("Not implemented");
+    return cartridgeTypeHasBattery.includes(this.cartridgeInfo.type);
   }
 }

@@ -55,9 +55,10 @@ export class GameBoy {
   }
 
   public loadROM(data: Uint8Array): void {
-    this.cartridge.loadROM(data);
-    console.log('Loaded cartridge:', this.cartridge.getCartridgeInfo());
     this.init();
+    this.cartridge.loadROM(data);
+    this.loadRAMData();
+    console.log('Loaded cartridge:', this.cartridge.getCartridgeInfo());
   }
 
   public init(): void {
@@ -92,7 +93,7 @@ export class GameBoy {
         // RAF 时间戳以毫秒为单位；模拟器时钟以秒为单位，且最多补偿 125ms。
         const deltaTime = Math.min(
           (currentTime - this.lastTime) / 1000,
-          MAX_TIME_STEP
+          MAX_TIME_STEP,
         );
         this.lastTime = currentTime;
         this.update(deltaTime);
@@ -107,6 +108,10 @@ export class GameBoy {
       };
       scheduleBrowserLoop();
     }
+  }
+
+  public close(): void {
+    this.saveRAMData();
   }
 
   public pause(): void {
@@ -136,7 +141,7 @@ export class GameBoy {
       ((this.ppu.currentBackBuffer + 1) % 2) * PPU_XRES * PPU_YRES * 4;
     const frame = this.ppu.pixels.subarray(
       offset,
-      offset + PPU_XRES * PPU_YRES * 4
+      offset + PPU_XRES * PPU_YRES * 4,
     );
     this.emit(FRAME_UPDATE, frame);
   }
@@ -153,6 +158,12 @@ export class GameBoy {
       this.ppu.tick();
     }
   }
+
+  // 加载持久化的存档数据
+  public loadRAMData(): void {}
+
+  // 获取要持久化的存档数据
+  public saveRAMData(): void {}
 
   /**
    * @param address u16
