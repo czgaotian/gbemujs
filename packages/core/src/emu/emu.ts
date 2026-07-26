@@ -78,9 +78,9 @@ export class GameBoy {
     this.intEnableFlags = 0;
   }
 
-  public start(data: Uint8Array, ramData?: Uint8Array): void {
+  public start(data: Uint8Array, saveData?: Uint8Array): void {
     this.loadROM(data);
-    if (ramData) this.loadRAMData(ramData);
+    if (saveData) this.loadSaveData(saveData);
 
     this.isRunning = true;
     this.loopGeneration += 1;
@@ -131,6 +131,7 @@ export class GameBoy {
 
   public update(deltaTime: number) {
     this.joypad.update();
+    this.cartridge.update(deltaTime);
     const frameCycles = TICKS_PER_MS * deltaTime * this.clockSpeedScale;
     const endCycles = this.clockCycles + frameCycles;
     while (this.clockCycles < endCycles && !this.paused) {
@@ -166,13 +167,13 @@ export class GameBoy {
   }
 
   // 加载持久化的存档数据
-  public loadRAMData(data: Uint8Array): boolean {
-    return this.cartridge.loadRAMData(data);
+  public loadSaveData(data: Uint8Array): boolean {
+    return this.cartridge.loadSaveData(data);
   }
 
   // 获取要持久化的存档数据
-  public getRAMData(): Uint8Array | null {
-    return this.cartridge.getRAMData();
+  public getSaveData(): Uint8Array | null {
+    return this.cartridge.getSaveData();
   }
 
   /**

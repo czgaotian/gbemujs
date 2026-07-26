@@ -3,6 +3,10 @@ export interface SaveStorage {
   setItem(key: string, value: string): void;
 }
 
+export interface CartridgeSaveSource {
+  getSaveData(savedTimestamp: number): Uint8Array | null;
+}
+
 function saveKey(fileName: string): string {
   return `gbjs:save:${fileName}`;
 }
@@ -28,7 +32,7 @@ function decode(value: string): Uint8Array | null {
   }
 }
 
-export function loadRAMData(
+export function loadSaveData(
   storage: SaveStorage,
   fileName: string,
 ): Uint8Array | null {
@@ -36,11 +40,20 @@ export function loadRAMData(
   return value === null ? null : decode(value);
 }
 
-export function saveRAMData(
+export function saveSaveData(
   storage: SaveStorage,
   fileName: string,
   data: Uint8Array | null,
 ): void {
   if (data === null) return;
   storage.setItem(saveKey(fileName), encode(data));
+}
+
+export function saveCartridgeData(
+  storage: SaveStorage,
+  fileName: string,
+  source: CartridgeSaveSource,
+  savedUnixSeconds = Math.floor(Date.now() / 1000),
+): void {
+  saveSaveData(storage, fileName, source.getSaveData(savedUnixSeconds));
 }

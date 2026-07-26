@@ -1,9 +1,13 @@
 import { afterEach, expect, test, vi } from 'vitest';
+import { MAX_TIME_STEP, TICKS_PER_MS } from '../../src/constants';
 import { GameBoy } from '../../src/emu/emu';
-import type { LoopController } from '../../src/types';
+import { CARTRIDGE_TYPE, type LoopController } from '../../src/types';
 
-const rom = (): Uint8Array => {
+const rom = (
+  type: CARTRIDGE_TYPE = CARTRIDGE_TYPE.ROM_ONLY,
+): Uint8Array => {
   const data = new Uint8Array(0x8000);
+  data[0x0147] = type;
   let checksum = 0;
   for (let address = 0x0134; address <= 0x014c; address++) {
     checksum = checksum - data[address] - 1;
@@ -51,7 +55,7 @@ test('passes the controller elapsed time in milliseconds to update', () => {
   setCurrentTime(16);
   callbacks[0]();
 
-  expect(update).toHaveBeenCalledWith(16);
+  expect(update).toHaveBeenCalledWith(16, 16);
   expect(controller.schedule).toHaveBeenCalledTimes(2);
 });
 
@@ -64,7 +68,26 @@ test('caps a scheduled delay at the maximum timestep', () => {
   setCurrentTime(1000);
   callbacks[0]();
 
-  expect(update).toHaveBeenCalledWith(125);
+  expect(update).toHaveBeenCalledWith(125, 1000);
+});
+
+test('advances RTC by the full loop gap while emulation remains capped', () => {
+  const { controller, callbacks, setCurrentTime } = createLoopController();
+  const gameBoy = new GameBoy(controller);
+
+  gameBoy.start(rom(CARTRIDGE_TYPE.MBC3_TIMER_BATTERY));
+  setCurrentTime(1000);
+  callbacks[0]();
+  gameBoy.busWrite(0x0000, 0x0a);
+  gameBoy.busWrite(0x4000, 0x08);
+
+  expect(gameBoy.busRead(0xa000)).toBe(1);
+  expect(gameBoy.clockCycles).toBeGreaterThanOrEqual(
+    TICKS_PER_MS * MAX_TIME_STEP,
+  );
+  expect(gameBoy.clockCycles).toBeLessThan(
+    TICKS_PER_MS * (MAX_TIME_STEP + 1),
+  );
 });
 
 test('cancels the pending callback before restarting', () => {

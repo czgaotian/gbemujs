@@ -1,11 +1,22 @@
+import { RTC } from './rtc';
+
 // 内存控制器基类
 export abstract class MemoryBankController {
   protected rom: Uint8Array;
   protected ram: Uint8Array;
 
+  //! MBC1/MBC2/MBC3: The ROM bank number controlling which rom bank is mapped to 0x4000~0x7FFF.
   protected romBankNumber: number = 1;
+  //! MBC1: The RAM bank number register controlling which ram bank is mapped to 0xA000~0xBFFF.
+  //! If the cartridge ROM size is larger than 512KB (32 banks), this is used to control the
+  //! high 2 bits of rom bank number, enabling the game to use at most 2MB of ROM data.
+  //! MBC3: The RAM bank number register controlling which ram bank/RTC register is mapped to 0xA000~0xBFFF.
+  //! 0-3: RAM banks.
+  //! 8-12: RTC registers.
   protected ramBankNumber: number = 0;
   protected bankingMode: number = 0;
+  //! MBC1/MBC2: The cartridge RAM is enabled for reading / writing.
+  //! MBC3: The cartridge RAM and cartridge timer enabled.
   protected ramEnabled: boolean = false;
 
   constructor(rom: Uint8Array, ramSize: number) {
@@ -47,7 +58,7 @@ export class MBC1 extends MemoryBankController {
     if (address < 0x4000) {
       // ROM 0 区
       // mode 0 固定为 ROM bank 0；mode 1 用高 2 位选择 0/32/64/96 bank。
-      const bank = this.bankingMode === 1 ? this.romBankNumber << 5 : 0;
+      const bank = this.bankingMode === 1 ? this.ramBankNumber << 5 : 0;
       return this.readROMBank(bank, address);
     } else if (address < 0x8000) {
       // ROM 1 区
@@ -146,6 +157,66 @@ export class MBC2 extends MemoryBankController {
     if (address >= 0xa000 && address < 0xc000 && this.ramEnabled) {
       const offset = (address - 0xa000) % 0x200;
       this.ram[offset] = value & 0x0f;
+    }
+  }
+}
+
+// MBC 3 实现
+export class MBC3 extends MemoryBankController {
+  private readonly rtc: RTC | null;
+  private ramRtcSelect = 0;
+  private previousLatchValue = 0xff;
+
+  constructor(rom: Uint8Array, ramSize: number, rtc: RTC | null = null) {
+    super(rom, ramSize);
+    this.rtc = rtc;
+  }
+
+  read(address: number): number {
+    if (address < 0x4000) {
+      return this.rom[address] ?? 0xff;
+    }
+    if (address < 0x8000) {
+      const offset = this.romBankNumber * 0x4000 + (address - 0x4000);
+      return this.rom[offset] ?? 0xff;
+    }
+    if (address >= 0xa000 && address < 0xc000) {
+      if (!this.ramEnabled) return 0xff;
+
+      if (this.ramRtcSelect <= 0x03) {
+        const offset = this.ramRtcSelect * 0x2000 + (address - 0xa000);
+        return this.ram[offset] ?? 0xff;
+      }
+      if (this.ramRtcSelect >= 0x08 && this.ramRtcSelect <= 0x0c) {
+        return this.rtc?.readRegister(this.ramRtcSelect - 0x08) ?? 0xff;
+      }
+    }
+    return 0xff;
+  }
+
+  write(address: number, value: number): void {
+    if (address < 0x2000) {
+      // 启用/禁用RAM和RTC寄存器读写
+      this.ramEnabled = (value & 0x0f) === 0x0a;
+    } else if (address < 0x4000) {
+      // 设置ROM1映射分块序号
+      this.romBankNumber = value & 0x7f || 1;
+    } else if (address < 0x6000) {
+      // 设置RAM映射分块序号，或者RTC寄存器
+      this.ramRtcSelect = value;
+    } else if (address < 0x8000) {
+      // 锁住/解锁RTC时间寄存器
+      if (this.previousLatchValue === 0 && value === 1) this.rtc?.latch();
+      this.previousLatchValue = value;
+    } else if (address >= 0xa000 && address < 0xc000) {
+      if (!this.ramEnabled) return;
+
+      if (this.ramRtcSelect <= 0x03) {
+        const offset = this.ramRtcSelect * 0x2000 + (address - 0xa000);
+        if (offset < this.ram.length) this.ram[offset] = value;
+      } else if (this.ramRtcSelect >= 0x08 && this.ramRtcSelect <= 0x0c) {
+        this.rtc?.writeRegister(this.ramRtcSelect - 0x08, value);
+      }
     }
   }
 }

@@ -1,10 +1,13 @@
 import { CARTRIDGE_TYPE, CartridgeInfo } from '../types';
-import { MemoryBankController, MBC1, MBC2, ROMOnly } from './mbc';
+import { MemoryBankController, MBC1, MBC2, ROMOnly, MBC3 } from './mbc';
+import { RTC } from './rtc';
+import { decodeCartridgeSave, encodeCartridgeSave } from '../utils/cartridge';
 
 export class Cartridge {
   private rom: Uint8Array = new Uint8Array(0);
   private mbc: MemoryBankController | null = null;
   private cartridgeInfo: CartridgeInfo | null = null;
+  private rtc: RTC | null = null;
 
   public loadROM(data: Uint8Array): void {
     this.rom = data;
@@ -19,6 +22,7 @@ export class Cartridge {
       throw new Error('Invalid cartridge checksum');
     }
 
+    this.initializeRTC();
     this.initializeMBC();
   }
 
@@ -65,6 +69,15 @@ export class Cartridge {
       case CARTRIDGE_TYPE.MBC2_BATTERY:
         this.mbc = new MBC2(this.rom);
         break;
+      case CARTRIDGE_TYPE.MBC3_TIMER_BATTERY:
+      case CARTRIDGE_TYPE.MBC3_TIMER_RAM_BATTERY:
+        this.mbc = new MBC3(this.rom, this.cartridgeInfo.ramSize, this.rtc);
+        break;
+      case CARTRIDGE_TYPE.MBC3:
+      case CARTRIDGE_TYPE.MBC3_RAM:
+      case CARTRIDGE_TYPE.MBC3_RAM_BATTERY:
+        this.mbc = new MBC3(this.rom, this.cartridgeInfo.ramSize);
+        break;
 
       // TODO: 实现其他MBC类型
       default:
@@ -72,6 +85,12 @@ export class Cartridge {
           `Unsupported cartridge type: ${this.cartridgeInfo.type}`,
         );
     }
+  }
+
+  private initializeRTC(): void {
+    if (!this.cartridgeInfo) return;
+
+    this.rtc = this.isCartridgeTimer ? new RTC() : null;
   }
 
   public getCartridgeInfo(): CartridgeInfo | null {
@@ -94,14 +113,48 @@ export class Cartridge {
     }
   }
 
-  public loadRAMData(data: Uint8Array): boolean {
-    if (!this.isCartridgeBattery || !this.mbc) return false;
-    return this.mbc.setRamData(data);
+  public getSaveData(): Uint8Array | null {
+    if (!this.isCartridgeBattery || !this.mbc) return null;
+
+    return encodeCartridgeSave({
+      ram: this.mbc.getRamData().slice(),
+      rtc: this.rtc?.getState() ?? null,
+      savedTimestamp: this.rtc === null ? null : new Date().valueOf(),
+    });
   }
 
-  public getRAMData(): Uint8Array | null {
-    if (!this.isCartridgeBattery || !this.mbc) return null;
-    return this.mbc.getRamData().slice();
+  public loadSaveData(data: Uint8Array): boolean {
+    if (!this.isCartridgeBattery || !this.mbc) return false;
+
+    const current = new Date().valueOf();
+
+    const save = decodeCartridgeSave(data);
+    if (
+      save === null ||
+      save.ram.length !== this.mbc.getRamData().length ||
+      (save.rtc === null) !== (this.rtc === null)
+    ) {
+      return false;
+    }
+
+    let restoredRTCState = save.rtc;
+    if (save.rtc !== null) {
+      if (save.savedTimestamp === null) return false;
+      const restoredRTC = new RTC();
+      if (!restoredRTC.setState(save.rtc)) return false;
+      restoredRTC.update(Math.max(0, current - save.savedTimestamp));
+      restoredRTCState = restoredRTC.getState();
+    }
+
+    if (!this.mbc.setRamData(save.ram)) return false;
+    return (
+      restoredRTCState === null || this.rtc?.setState(restoredRTCState) === true
+    );
+  }
+
+  public update(deltaTime: number): void {
+    if (Number.isFinite(deltaTime) && deltaTime > 0)
+      this.rtc?.update(deltaTime);
   }
 
   get isCartridgeBattery(): boolean {
@@ -119,5 +172,16 @@ export class Cartridge {
     ];
 
     return cartridgeTypeHasBattery.includes(this.cartridgeInfo.type);
+  }
+
+  get isCartridgeTimer(): boolean {
+    if (!this.cartridgeInfo) return false;
+
+    const cartridgeTypeHasTimer = [
+      CARTRIDGE_TYPE.MBC3_TIMER_BATTERY,
+      CARTRIDGE_TYPE.MBC3_TIMER_RAM_BATTERY,
+    ];
+
+    return cartridgeTypeHasTimer.includes(this.cartridgeInfo.type);
   }
 }

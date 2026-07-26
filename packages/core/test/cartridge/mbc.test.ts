@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { Cartridge } from '../../src/cartridge/cartridge';
-import { MBC1, MBC2 } from '../../src/cartridge/mbc';
+import { MBC1, MBC2, MBC3 } from '../../src/cartridge/mbc';
+import { RTC } from '../../src/cartridge/rtc';
 import { CARTRIDGE_TYPE } from '../../src/types';
 
 function createRom(bankCount = 16): Uint8Array {
@@ -87,6 +88,69 @@ describe('MBC2', () => {
 
     mbc.write(0x0000, 0x00);
     expect(mbc.read(0xa1ff)).toBe(0xff);
+  });
+});
+
+describe('MBC3', () => {
+  test('selects a seven-bit switchable ROM bank and remaps zero to one', () => {
+    const mbc = new MBC3(createRom(), 0);
+
+    mbc.write(0x2000, 0x03);
+    expect(mbc.read(0x4000)).toBe(0x03);
+
+    mbc.write(0x2000, 0x00);
+    expect(mbc.read(0x4000)).toBe(0x01);
+  });
+
+  test('routes enabled external accesses to RAM banks and RTC registers', () => {
+    const rtc = new RTC();
+    const mbc = new MBC3(createRom(), 32 * 1024, rtc);
+
+    expect(mbc.read(0xa000)).toBe(0xff);
+    mbc.write(0x0000, 0x0a);
+
+    mbc.write(0x4000, 0x02);
+    mbc.write(0xa000, 0xab);
+    mbc.write(0x4000, 0x00);
+    expect(mbc.read(0xa000)).toBe(0x00);
+    mbc.write(0x4000, 0x02);
+    expect(mbc.read(0xa000)).toBe(0xab);
+
+    mbc.write(0x4000, 0x08);
+    mbc.write(0xa000, 45);
+    expect(mbc.read(0xa000)).toBe(45);
+  });
+
+  test('latches the RTC only on a zero-to-one command transition', () => {
+    const rtc = new RTC();
+    const mbc = new MBC3(createRom(), 0, rtc);
+    rtc.update(10);
+
+    mbc.write(0x0000, 0x0a);
+    mbc.write(0x4000, 0x08);
+    mbc.write(0x6000, 0);
+    mbc.write(0x6000, 1);
+    rtc.update(5);
+    mbc.write(0x6000, 1);
+
+    expect(mbc.read(0xa000)).toBe(10);
+  });
+
+  test('refreshes and freezes the RTC snapshot on every latch command', () => {
+    const rtc = new RTC();
+    const mbc = new MBC3(createRom(), 0, rtc);
+    rtc.update(10);
+
+    mbc.write(0x0000, 0x0a);
+    mbc.write(0x4000, 0x08);
+    mbc.write(0x6000, 0);
+    mbc.write(0x6000, 1);
+    rtc.update(5);
+    mbc.write(0x6000, 0);
+    mbc.write(0x6000, 1);
+    rtc.update(5);
+
+    expect(mbc.read(0xa000)).toBe(15);
   });
 });
 
