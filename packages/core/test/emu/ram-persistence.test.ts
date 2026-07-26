@@ -38,5 +38,14 @@ test('persists RAM written through the memory bus', () => {
   gameBoy.busWrite(0x0000, 0x0a);
   gameBoy.busWrite(0xa000, 0xa5);
 
+  expect(gameBoy.paused).toBe(false);
   expect(gameBoy.getRAMData()?.[0]).toBe(0xa5);
+});
+
+test('pauses when a bus write has no address', () => {
+  const gameBoy = new GameBoy(loopController);
+
+  gameBoy.busWrite(undefined as unknown as number, 0x00);
+
+  expect(gameBoy.paused).toBe(true);
 });

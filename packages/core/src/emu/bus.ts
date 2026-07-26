@@ -83,8 +83,9 @@ export function busRead(this: GameBoy, address: number): number {
 export function busWrite(this: GameBoy, address: number, value: number): void {
   value = value & 0xff;
 
-  if (!address) {
+  if (address == null) {
     this.paused = true;
+    return;
   }
 
   if (address <= 0x7fff) {
