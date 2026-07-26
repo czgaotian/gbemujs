@@ -1,6 +1,7 @@
-export const TICKS_PER_SEC = 4194304.0;
+// clock speed is 4194304Hz, so 4194.304 ticks per millisecond
+export const TICKS_PER_MS = 4194.304;
 
-export const MAX_TIME_STEP = 0.125; // 125ms means 8 frames per second
+export const MAX_TIME_STEP = 125;
 
 export const CartridgeTypeMap = [
   'ROM Only',

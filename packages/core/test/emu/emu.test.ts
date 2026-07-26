@@ -42,7 +42,7 @@ const createLoopController = () => {
   };
 };
 
-test('converts the controller clock from milliseconds to seconds before updating', () => {
+test('passes the controller elapsed time in milliseconds to update', () => {
   const { controller, callbacks, setCurrentTime } = createLoopController();
   const gameBoy = new GameBoy(controller);
   const update = vi.spyOn(gameBoy, 'update').mockImplementation(() => {});
@@ -51,7 +51,7 @@ test('converts the controller clock from milliseconds to seconds before updating
   setCurrentTime(16);
   callbacks[0]();
 
-  expect(update).toHaveBeenCalledWith(0.016);
+  expect(update).toHaveBeenCalledWith(16);
   expect(controller.schedule).toHaveBeenCalledTimes(2);
 });
 
@@ -64,7 +64,7 @@ test('caps a scheduled delay at the maximum timestep', () => {
   setCurrentTime(1000);
   callbacks[0]();
 
-  expect(update).toHaveBeenCalledWith(0.125);
+  expect(update).toHaveBeenCalledWith(125);
 });
 
 test('cancels the pending callback before restarting', () => {

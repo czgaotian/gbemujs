@@ -9,7 +9,7 @@ import { Serial } from '../serial/serial';
 import { INTERRUPT_TYPE as IT, type LoopController } from '../types';
 import { EventBus, SERIAL, FRAME_UPDATE } from '../event';
 import { PPU_XRES, PPU_YRES } from '../constants/ppu';
-import { TICKS_PER_SEC, MAX_TIME_STEP } from '../constants';
+import { TICKS_PER_MS, MAX_TIME_STEP } from '../constants';
 
 const eventBus = new EventBus();
 
@@ -100,10 +100,7 @@ export class GameBoy {
     this.cancelScheduled = undefined;
 
     const currentTime = this.loopController.now();
-    const deltaTime = Math.min(
-      (currentTime - this.lastTime) / 1000,
-      MAX_TIME_STEP,
-    );
+    const deltaTime = Math.min(currentTime - this.lastTime, MAX_TIME_STEP);
     this.lastTime = currentTime;
     this.update(deltaTime);
     if (this.isRunning && generation === this.loopGeneration) {
@@ -134,8 +131,7 @@ export class GameBoy {
 
   public update(deltaTime: number) {
     this.joypad.update();
-    // clock speed is 4194304Hz
-    const frameCycles = TICKS_PER_SEC * deltaTime * this.clockSpeedScale;
+    const frameCycles = TICKS_PER_MS * deltaTime * this.clockSpeedScale;
     const endCycles = this.clockCycles + frameCycles;
     while (this.clockCycles < endCycles && !this.paused) {
       this.cpu.step();

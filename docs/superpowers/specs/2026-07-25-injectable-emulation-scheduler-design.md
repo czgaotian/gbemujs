@@ -17,10 +17,10 @@ interface LoopController {
 }
 ```
 
-Time is expressed in milliseconds. The core reads the time when a scheduled
-callback runs, then converts elapsed time to seconds before calling its
-existing `update()` method. A scheduler only queues work; it does not need to
-provide a timestamp to the callback.
+Time is expressed in milliseconds throughout the core. The core reads the
+time when a scheduled callback runs and passes elapsed milliseconds directly
+to `update()`. A scheduler only queues work; it does not need to provide a
+timestamp to the callback.
 
 `GameBoy` receives a `LoopController` at construction. It owns the loop
 lifecycle: `start()` initializes and loads the emulator, records the initial
