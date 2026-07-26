@@ -119,9 +119,14 @@ export class MBC2 extends MemoryBankController {
       const bankAddress = address - 0x4000 + this.romBankNumber * 0x4000;
       return this.rom[bankAddress];
     }
-    if (address >= 0xa000 && address < 0xa200) {
+    if (address >= 0xa000 && address < 0xc000) {
       if (!this.ramEnabled) return 0xff;
-      return 0xf0 | this.ram[address - 0xa000];
+      // 读取地址在RAM地址区间中的偏移，然后 mod 512
+      // 模拟MBC2中重复映射同一个RAM16次的特性
+      const offset = (address - 0xa000) % 0x200;
+      // 与0x0F做与操作，清空高4位的数据
+      // 与0xF0做或操作，将高四位的数据全部设置为1
+      return (this.ram[offset] & 0x0f) | 0xf0;
     }
     return 0xff;
   }
@@ -129,15 +134,18 @@ export class MBC2 extends MemoryBankController {
   write(address: number, value: number): void {
     if (address < 0x4000) {
       if ((address & 0x0100) === 0) {
+        // 第8位为0时，该操作用于控制是否启动RAM
         this.ramEnabled = (value & 0x0f) === 0x0a;
       } else {
+        // 第8位为1时，该操作用于选择ROM1区域的映射分块
         this.romBankNumber = value & 0x0f || 1;
       }
       return;
     }
 
-    if (address >= 0xa000 && address < 0xa200 && this.ramEnabled) {
-      this.ram[address - 0xa000] = value & 0x0f;
+    if (address >= 0xa000 && address < 0xc000 && this.ramEnabled) {
+      const offset = (address - 0xa000) % 0x200;
+      this.ram[offset] = value & 0x0f;
     }
   }
 }

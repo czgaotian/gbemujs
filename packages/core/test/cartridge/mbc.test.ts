@@ -80,7 +80,10 @@ describe('MBC2', () => {
     mbc.write(0x0000, 0x0a);
     mbc.write(0xa1ff, 0xab);
     expect(mbc.read(0xa1ff)).toBe(0xfb);
-    expect(mbc.read(0xa200)).toBe(0xff);
+    expect(mbc.read(0xa3ff)).toBe(0xfb);
+
+    mbc.write(0xa400, 0x0c);
+    expect(mbc.read(0xa000)).toBe(0xfc);
 
     mbc.write(0x0000, 0x00);
     expect(mbc.read(0xa1ff)).toBe(0xff);
