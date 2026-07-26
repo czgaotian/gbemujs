@@ -4,8 +4,7 @@ import { INTERRUPT_TYPE } from '../../src/types';
 
 const loopController = {
   now: () => 0,
-  schedule: () => 0,
-  cancel: () => {},
+  schedule: () => () => {},
 };
 
 const createCpu = (...bytes: number[]): GameBoy => {

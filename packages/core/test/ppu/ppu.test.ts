@@ -4,8 +4,7 @@ import { PPU_MODE } from '../../src/types/ppu';
 
 const loopController = {
   now: () => 0,
-  schedule: () => 0,
-  cancel: () => {},
+  schedule: () => () => {},
 };
 
 function createGameBoy() {

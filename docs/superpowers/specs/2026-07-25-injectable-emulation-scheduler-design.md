@@ -13,8 +13,7 @@ to its runtime.
 ```ts
 interface LoopController {
   now(): number;
-  schedule(callback: () => void): unknown;
-  cancel(handle: unknown): void;
+  schedule(callback: () => void): () => void;
 }
 ```
 
@@ -26,9 +25,9 @@ provide a timestamp to the callback.
 `GameBoy` receives a `LoopController` at construction. It owns the loop
 lifecycle: `start()` initializes and loads the emulator, records the initial
 time, and schedules the first callback. Each callback advances the emulator
-then schedules the next callback. Restarting cancels the pending callback
-before scheduling a replacement. `close()` cancels a pending callback before
-saving RAM.
+then schedules the next callback. `schedule()` returns a cancellation function,
+which keeps scheduler-specific handles private to the host. Restarting and
+closing invoke the pending cancellation function before discarding it.
 
 The core package does not access `window`, `document`, `performance`,
 `requestAnimationFrame`, or `cancelAnimationFrame`.
@@ -50,7 +49,7 @@ core API and the emulator remains responsible for invoking `update()`.
 
 - A controller is required so core never needs environment detection or a
   fallback scheduler.
-- The pending schedule handle is private implementation state in `GameBoy`.
+- The pending cancellation function is private implementation state in `GameBoy`.
 - Starting a ROM a second time cancels the previous pending callback, ensuring
   exactly one active loop.
 - Closing the emulator stops the loop, then returns any persistent RAM data as

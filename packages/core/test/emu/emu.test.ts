@@ -23,12 +23,14 @@ const createLoopController = () => {
   const controller: LoopController = {
     now: vi.fn(() => currentTime),
     schedule: vi.fn((callback) => {
-      callbacks.push(callback);
-      const handle = callbacks.length;
+      const handle = callbacks.length + 1;
       activeHandles.add(handle);
-      return handle;
+      callbacks.push(() => {
+        activeHandles.delete(handle);
+        callback();
+      });
+      return () => activeHandles.delete(handle);
     }),
-    cancel: vi.fn((handle: number) => activeHandles.delete(handle)),
   };
   return {
     controller,
@@ -66,23 +68,23 @@ test('caps a scheduled delay at the maximum timestep', () => {
 });
 
 test('cancels the pending callback before restarting', () => {
-  const { controller } = createLoopController();
+  const { controller, activeHandles } = createLoopController();
   const gameBoy = new GameBoy(controller);
 
   gameBoy.start(rom());
   gameBoy.start(rom());
 
-  expect(controller.cancel).toHaveBeenCalledWith(1);
+  expect(activeHandles).toEqual(new Set([2]));
 });
 
 test('cancels the pending callback when closed', () => {
-  const { controller } = createLoopController();
+  const { controller, activeHandles } = createLoopController();
   const gameBoy = new GameBoy(controller);
 
   gameBoy.start(rom());
   gameBoy.close();
 
-  expect(controller.cancel).toHaveBeenCalledWith(1);
+  expect(activeHandles).toEqual(new Set());
 });
 
 test('does not reschedule after update closes the emulator', () => {

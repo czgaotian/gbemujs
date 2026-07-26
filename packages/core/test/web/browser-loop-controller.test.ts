@@ -12,15 +12,15 @@ test('reads the browser performance clock', () => {
   expect(browserLoopController.now()).toBe(42);
 });
 
-test('delegates scheduling and cancellation to browser RAF', () => {
+test('returns a cancellation function for the scheduled browser RAF', () => {
   const callback = vi.fn();
   const requestAnimationFrame = vi.fn(() => 7);
   const cancelAnimationFrame = vi.fn();
   vi.stubGlobal('requestAnimationFrame', requestAnimationFrame);
   vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrame);
 
-  const handle = browserLoopController.schedule(callback);
-  browserLoopController.cancel(handle);
+  const cancel = browserLoopController.schedule(callback);
+  cancel();
 
   expect(requestAnimationFrame).toHaveBeenCalledWith(callback);
   expect(cancelAnimationFrame).toHaveBeenCalledWith(7);

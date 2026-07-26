@@ -23,7 +23,7 @@ export class GameBoy {
   public serial: Serial;
 
   private lastTime = 0;
-  private loopHandle: unknown;
+  private cancelScheduled?: () => void;
   private loopGeneration = 0;
   private isRunning = false;
   public clockCycles: number = 0;
@@ -91,14 +91,13 @@ export class GameBoy {
   public close(): void {
     this.isRunning = false;
     this.loopGeneration += 1;
-    if (this.loopHandle !== undefined) {
-      this.loopController.cancel(this.loopHandle);
-      this.loopHandle = undefined;
-    }
+    this.cancelLoop();
   }
 
   private readonly runLoop = (generation: number): void => {
     if (!this.isRunning || generation !== this.loopGeneration) return;
+
+    this.cancelScheduled = undefined;
 
     const currentTime = this.loopController.now();
     const deltaTime = Math.min(
@@ -113,13 +112,16 @@ export class GameBoy {
   };
 
   private scheduleLoop(): void {
-    if (this.loopHandle !== undefined) {
-      this.loopController.cancel(this.loopHandle);
-    }
+    this.cancelLoop();
     const generation = this.loopGeneration;
-    this.loopHandle = this.loopController.schedule(() =>
+    this.cancelScheduled = this.loopController.schedule(() =>
       this.runLoop(generation),
     );
+  }
+
+  private cancelLoop(): void {
+    this.cancelScheduled?.();
+    this.cancelScheduled = undefined;
   }
 
   public pause(): void {

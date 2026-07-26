@@ -10,8 +10,7 @@ import { GameBoy } from '../../src/emu/emu';
 
 const loopController = {
   now: () => 0,
-  schedule: () => 0,
-  cancel: () => {},
+  schedule: () => () => {},
 };
 
 describe('processor', () => {

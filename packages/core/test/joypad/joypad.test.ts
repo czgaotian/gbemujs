@@ -4,8 +4,7 @@ import { INTERRUPT_TYPE } from '../../src/types';
 
 const loopController = {
   now: () => 0,
-  schedule: () => 0,
-  cancel: () => {},
+  schedule: () => () => {},
 };
 
 test('P1 resets to the idle readable value', () => {
