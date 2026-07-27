@@ -6,7 +6,7 @@ import { Joypad } from '../joypad/joypad';
 import { Cartridge } from '../cartridge/cartridge';
 import { Timer } from '../timer/timer';
 import { Serial } from '../serial/serial';
-import { INTERRUPT_TYPE as IT, type LoopController } from '../types';
+import { INTERRUPT_TYPE as IT } from '../types';
 import { EventBus, SERIAL, FRAME_UPDATE } from '../event';
 import { PPU_XRES, PPU_YRES } from '../constants/ppu';
 import { TICKS_PER_MS, MAX_TIME_STEP } from '../constants';
@@ -39,7 +39,7 @@ export class GameBoy {
   public intFlags: number;
   public intEnableFlags: number;
 
-  constructor(private readonly loopController: LoopController) {
+  constructor(private readonly schedule: (callback: () => void) => () => void) {
     this.cartridge = new Cartridge();
     this.cpu = new CPU(this);
     this.ppu = new PPU(this);
@@ -84,7 +84,7 @@ export class GameBoy {
 
     this.isRunning = true;
     this.loopGeneration += 1;
-    this.lastTime = this.loopController.now();
+    this.lastTime = performance.now();
     this.scheduleLoop();
   }
 
@@ -99,7 +99,7 @@ export class GameBoy {
 
     this.cancelScheduled = undefined;
 
-    const currentTime = this.loopController.now();
+    const currentTime = performance.now();
     const deltaTime = Math.min(currentTime - this.lastTime, MAX_TIME_STEP);
     this.lastTime = currentTime;
     this.update(deltaTime);
@@ -111,9 +111,7 @@ export class GameBoy {
   private scheduleLoop(): void {
     this.cancelLoop();
     const generation = this.loopGeneration;
-    this.cancelScheduled = this.loopController.schedule(() =>
-      this.runLoop(generation),
-    );
+    this.cancelScheduled = this.schedule(() => this.runLoop(generation));
   }
 
   private cancelLoop(): void {
@@ -131,7 +129,7 @@ export class GameBoy {
 
   public update(deltaTime: number) {
     this.joypad.update();
-    this.cartridge.update(deltaTime);
+    this.cartridge.update();
     const frameCycles = TICKS_PER_MS * deltaTime * this.clockSpeedScale;
     const endCycles = this.clockCycles + frameCycles;
     while (this.clockCycles < endCycles && !this.paused) {

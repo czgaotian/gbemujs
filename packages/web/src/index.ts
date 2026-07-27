@@ -5,7 +5,6 @@ import { SERIAL, FRAME_UPDATE } from '@gbjs/core/event';
 import { cssString, domString } from './template';
 import { updateJoypadKey } from './key-input';
 import { loadSaveData, saveCartridgeData } from './save-data';
-import { browserLoopController } from './browser-loop-controller';
 
 export class GameBoyDom extends HTMLElement {
   gameBoy: GameBoy;
@@ -13,7 +12,10 @@ export class GameBoyDom extends HTMLElement {
 
   constructor() {
     super();
-    this.gameBoy = new GameBoy(browserLoopController);
+    this.gameBoy = new GameBoy((callback) => {
+      const handle = requestAnimationFrame(callback);
+      return () => cancelAnimationFrame(handle);
+    });
   }
 
   connectedCallback() {
