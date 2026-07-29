@@ -1,15 +1,13 @@
-import type { RTCState } from '../cartridge/rtc';
+import { isValidRTCState, type RTCState } from '../cartridge/rtc';
 
 const MAGIC = new Uint8Array([0x47, 0x42, 0x4a, 0x53]);
 const VERSION = 1;
 const HEADER_SIZE = MAGIC.length + 1 + 4;
-const RTC_STATE_SIZE = 8 + 5 + 1;
-const TIMESTAMP_SIZE = 8;
+const RTC_STATE_SIZE = 5 + 5 + 8;
 
 export interface CartridgeSaveData {
   ram: Uint8Array;
   rtc: RTCState | null;
-  savedTimestamp: number | null;
 }
 
 export function isCartridgeSave(data: Uint8Array): boolean {
@@ -22,20 +20,12 @@ export function isCartridgeSave(data: Uint8Array): boolean {
 export function encodeCartridgeSave(data: CartridgeSaveData): Uint8Array {
   if (
     data.ram.length > 0xffffffff ||
-    (data.rtc === null) !== (data.savedTimestamp === null) ||
-    (data.savedTimestamp !== null &&
-      !Number.isSafeInteger(data.savedTimestamp)) ||
-    (data.rtc !== null &&
-      (!Number.isFinite(data.rtc.elapsedSeconds) ||
-        data.rtc.elapsedSeconds < 0 ||
-        !(data.rtc.registers instanceof Uint8Array) ||
-        data.rtc.registers.length !== 5 ||
-        typeof data.rtc.latched !== 'boolean'))
+    (data.rtc !== null && !isValidRTCState(data.rtc))
   ) {
     throw new RangeError('Invalid cartridge save data');
   }
 
-  const rtcSize = data.rtc === null ? 0 : RTC_STATE_SIZE + TIMESTAMP_SIZE;
+  const rtcSize = data.rtc === null ? 0 : RTC_STATE_SIZE;
   const encoded = new Uint8Array(HEADER_SIZE + data.ram.length + 1 + rtcSize);
   const view = new DataView(encoded.buffer);
   let offset = 0;
@@ -52,13 +42,11 @@ export function encodeCartridgeSave(data: CartridgeSaveData): Uint8Array {
   encoded[offset] = data.rtc === null ? 0 : 1;
   offset += 1;
   if (data.rtc !== null) {
-    view.setFloat64(offset, data.rtc.elapsedSeconds, true);
-    offset += 8;
-    encoded.set(data.rtc.registers, offset);
-    offset += data.rtc.registers.length;
-    encoded[offset] = data.rtc.latched ? 1 : 0;
-    offset += 1;
-    view.setBigInt64(offset, BigInt(data.savedTimestamp!), true);
+    encoded.set(data.rtc.liveRegisters, offset);
+    offset += data.rtc.liveRegisters.length;
+    encoded.set(data.rtc.latchedRegisters, offset);
+    offset += data.rtc.latchedRegisters.length;
+    view.setBigInt64(offset, BigInt(data.rtc.updatedAtMs), true);
   }
 
   return encoded;
@@ -85,39 +73,32 @@ export function decodeCartridgeSave(
   offset += 1;
 
   let rtc: RTCState | null = null;
-  let savedTimestamp: number | null = null;
   if (rtcFlag === 1) {
-    if (offset + RTC_STATE_SIZE + TIMESTAMP_SIZE !== data.length) return null;
+    if (offset + RTC_STATE_SIZE !== data.length) return null;
 
-    const elapsedSeconds = view.getFloat64(offset, true);
-    offset += 8;
-    const registers = data.slice(offset, offset + 5);
-    offset += registers.length;
-    const latched = data[offset];
-    offset += 1;
-
-    if (
-      !Number.isFinite(elapsedSeconds) ||
-      elapsedSeconds < 0 ||
-      (latched !== 0 && latched !== 1)
-    ) {
-      return null;
-    }
-    rtc = { elapsedSeconds, registers, latched: latched === 1 };
+    const liveRegisters = data.slice(offset, offset + 5);
+    offset += liveRegisters.length;
+    const latchedRegisters = data.slice(offset, offset + 5);
+    offset += latchedRegisters.length;
     const timestamp = view.getBigInt64(offset, true);
-    if (
-      timestamp < BigInt(Number.MIN_SAFE_INTEGER) ||
-      timestamp > BigInt(Number.MAX_SAFE_INTEGER)
-    ) {
+    offset += 8;
+
+    if (timestamp < 0 || timestamp > BigInt(Number.MAX_SAFE_INTEGER)) {
       return null;
     }
-    savedTimestamp = Number(timestamp);
-    offset += TIMESTAMP_SIZE;
-  } else if (rtcFlag !== 0) {
+
+    const candidate: RTCState = {
+      liveRegisters,
+      latchedRegisters,
+      updatedAtMs: Number(timestamp),
+    };
+    if (!isValidRTCState(candidate)) return null;
+    rtc = candidate;
+  } else if (rtcFlag !== 0 || offset !== data.length) {
     return null;
   }
 
   if (offset !== data.length) return null;
 
-  return { ram, rtc, savedTimestamp };
+  return { ram, rtc };
 }

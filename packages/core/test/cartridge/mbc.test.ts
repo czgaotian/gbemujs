@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { Cartridge } from '../../src/cartridge/cartridge';
 import { MBC1, MBC2, MBC3 } from '../../src/cartridge/mbc';
 import { RTC } from '../../src/cartridge/rtc';
@@ -92,6 +92,15 @@ describe('MBC2', () => {
 });
 
 describe('MBC3', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   test('selects a seven-bit switchable ROM bank and remaps zero to one', () => {
     const mbc = new MBC3(createRom(), 0);
 
@@ -118,19 +127,23 @@ describe('MBC3', () => {
 
     mbc.write(0x4000, 0x08);
     mbc.write(0xa000, 45);
+
+    expect(mbc.read(0xa000)).toBe(0);
+    mbc.write(0x6000, 0);
+    mbc.write(0x6000, 1);
     expect(mbc.read(0xa000)).toBe(45);
   });
 
   test('latches the RTC only on a zero-to-one command transition', () => {
     const rtc = new RTC();
     const mbc = new MBC3(createRom(), 0, rtc);
-    rtc.update(10);
 
     mbc.write(0x0000, 0x0a);
     mbc.write(0x4000, 0x08);
+    vi.setSystemTime(10_000);
     mbc.write(0x6000, 0);
     mbc.write(0x6000, 1);
-    rtc.update(5);
+    vi.setSystemTime(15_000);
     mbc.write(0x6000, 1);
 
     expect(mbc.read(0xa000)).toBe(10);
@@ -139,16 +152,16 @@ describe('MBC3', () => {
   test('refreshes and freezes the RTC snapshot on every latch command', () => {
     const rtc = new RTC();
     const mbc = new MBC3(createRom(), 0, rtc);
-    rtc.update(10);
 
     mbc.write(0x0000, 0x0a);
     mbc.write(0x4000, 0x08);
+    vi.setSystemTime(10_000);
     mbc.write(0x6000, 0);
     mbc.write(0x6000, 1);
-    rtc.update(5);
+    vi.setSystemTime(15_000);
     mbc.write(0x6000, 0);
     mbc.write(0x6000, 1);
-    rtc.update(5);
+    vi.setSystemTime(20_000);
 
     expect(mbc.read(0xa000)).toBe(15);
   });

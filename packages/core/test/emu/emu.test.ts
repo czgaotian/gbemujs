@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { MAX_TIME_STEP, TICKS_PER_MS } from '../../src/constants';
 import { GameBoy } from '../../src/emu/emu';
-import { CARTRIDGE_TYPE, type LoopController } from '../../src/types';
+import { CARTRIDGE_TYPE } from '../../src/types';
 
 const rom = (
   type: CARTRIDGE_TYPE = CARTRIDGE_TYPE.ROM_ONLY,
@@ -17,27 +17,28 @@ const rom = (
 };
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
-const createLoopController = () => {
+const createScheduler = () => {
   const callbacks: Array<() => void> = [];
   const activeHandles = new Set<number>();
   let currentTime = 0;
-  const controller: LoopController = {
-    now: vi.fn(() => currentTime),
-    schedule: vi.fn((callback) => {
-      const handle = callbacks.length + 1;
-      activeHandles.add(handle);
-      callbacks.push(() => {
-        activeHandles.delete(handle);
-        callback();
-      });
-      return () => activeHandles.delete(handle);
-    }),
-  };
+  vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
+  const schedule = vi.fn((callback: () => void) => {
+    const handle = callbacks.length + 1;
+    activeHandles.add(handle);
+    callbacks.push(() => {
+      activeHandles.delete(handle);
+      callback();
+    });
+    return () => {
+      activeHandles.delete(handle);
+    };
+  });
   return {
-    controller,
+    schedule,
     callbacks,
     activeHandles,
     setCurrentTime: (time: number) => {
@@ -46,39 +47,49 @@ const createLoopController = () => {
   };
 };
 
-test('passes the controller elapsed time in milliseconds to update', () => {
-  const { controller, callbacks, setCurrentTime } = createLoopController();
-  const gameBoy = new GameBoy(controller);
+test('passes the scheduled elapsed time in milliseconds to update', () => {
+  const { schedule, callbacks, setCurrentTime } = createScheduler();
+  const gameBoy = new GameBoy(schedule);
   const update = vi.spyOn(gameBoy, 'update').mockImplementation(() => {});
 
   gameBoy.start(rom());
   setCurrentTime(16);
   callbacks[0]();
 
-  expect(update).toHaveBeenCalledWith(16, 16);
-  expect(controller.schedule).toHaveBeenCalledTimes(2);
+  expect(update).toHaveBeenCalledWith(16);
+  expect(schedule).toHaveBeenCalledTimes(2);
 });
 
 test('caps a scheduled delay at the maximum timestep', () => {
-  const { controller, callbacks, setCurrentTime } = createLoopController();
-  const gameBoy = new GameBoy(controller);
+  const { schedule, callbacks, setCurrentTime } = createScheduler();
+  const gameBoy = new GameBoy(schedule);
   const update = vi.spyOn(gameBoy, 'update').mockImplementation(() => {});
 
   gameBoy.start(rom());
   setCurrentTime(1000);
   callbacks[0]();
 
-  expect(update).toHaveBeenCalledWith(125, 1000);
+  expect(update).toHaveBeenCalledWith(125);
 });
 
-test('advances RTC by the full loop gap while emulation remains capped', () => {
-  const { controller, callbacks, setCurrentTime } = createLoopController();
-  const gameBoy = new GameBoy(controller);
+test('leaves RTC advancement to lazy wall-clock synchronization', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(0);
+  const { schedule, callbacks, setCurrentTime } = createScheduler();
+  const gameBoy = new GameBoy(schedule);
 
   gameBoy.start(rom(CARTRIDGE_TYPE.MBC3_TIMER_BATTERY));
+  const dateNow = vi.spyOn(Date, 'now');
+  dateNow.mockClear();
+  vi.setSystemTime(1000);
   setCurrentTime(1000);
   callbacks[0]();
+
+  expect(dateNow).not.toHaveBeenCalled();
+
   gameBoy.busWrite(0x0000, 0x0a);
+  gameBoy.busWrite(0x6000, 0x00);
+  gameBoy.busWrite(0x6000, 0x01);
   gameBoy.busWrite(0x4000, 0x08);
 
   expect(gameBoy.busRead(0xa000)).toBe(1);
@@ -91,8 +102,8 @@ test('advances RTC by the full loop gap while emulation remains capped', () => {
 });
 
 test('cancels the pending callback before restarting', () => {
-  const { controller, activeHandles } = createLoopController();
-  const gameBoy = new GameBoy(controller);
+  const { schedule, activeHandles } = createScheduler();
+  const gameBoy = new GameBoy(schedule);
 
   gameBoy.start(rom());
   gameBoy.start(rom());
@@ -101,8 +112,8 @@ test('cancels the pending callback before restarting', () => {
 });
 
 test('cancels the pending callback when closed', () => {
-  const { controller, activeHandles } = createLoopController();
-  const gameBoy = new GameBoy(controller);
+  const { schedule, activeHandles } = createScheduler();
+  const gameBoy = new GameBoy(schedule);
 
   gameBoy.start(rom());
   gameBoy.close();
@@ -111,25 +122,25 @@ test('cancels the pending callback when closed', () => {
 });
 
 test('does not reschedule after update closes the emulator', () => {
-  const { controller, callbacks, activeHandles } = createLoopController();
-  const gameBoy = new GameBoy(controller);
+  const { schedule, callbacks, activeHandles } = createScheduler();
+  const gameBoy = new GameBoy(schedule);
   vi.spyOn(gameBoy, 'update').mockImplementation(() => gameBoy.close());
 
   gameBoy.start(rom());
   callbacks[0]();
 
-  expect(controller.schedule).toHaveBeenCalledTimes(1);
+  expect(schedule).toHaveBeenCalledTimes(1);
   expect(activeHandles).toEqual(new Set());
 });
 
 test('does not add a second loop after update restarts the emulator', () => {
-  const { controller, callbacks, activeHandles } = createLoopController();
-  const gameBoy = new GameBoy(controller);
+  const { schedule, callbacks, activeHandles } = createScheduler();
+  const gameBoy = new GameBoy(schedule);
   vi.spyOn(gameBoy, 'update').mockImplementation(() => gameBoy.start(rom()));
 
   gameBoy.start(rom());
   callbacks[0]();
 
-  expect(controller.schedule).toHaveBeenCalledTimes(2);
+  expect(schedule).toHaveBeenCalledTimes(2);
   expect(activeHandles).toEqual(new Set([2]));
 });

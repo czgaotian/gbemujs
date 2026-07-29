@@ -1,6 +1,15 @@
-import { describe, expect, test } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest';
 import { Cartridge } from '../../src/cartridge/cartridge';
 import { CARTRIDGE_TYPE } from '../../src/types';
+
+const SAVED_AT_MS = 1_700_000_000_000;
 
 function createRom(type: CARTRIDGE_TYPE, ramSizeCode: number): Uint8Array {
   const rom = new Uint8Array(0x8000);
@@ -42,22 +51,32 @@ function writeRTCRegister(
 }
 
 function readRTCRegister(cartridge: Cartridge, register: number): number {
+  cartridge.write(0x6000, 0);
+  cartridge.write(0x6000, 1);
   cartridge.write(0x4000, 0x08 + register);
   return cartridge.read(0xa000);
 }
 
 describe('cartridge RTC persistence', () => {
-  const savedAt = 1_700_000_000;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(SAVED_AT_MS);
+  });
 
-  test('restores RAM and advances an active RTC by offline UTC seconds', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('restores RAM and lazily advances an active RTC offline', () => {
     const source = createTimerCartridge();
     source.write(0x4000, 0x00);
     source.write(0xa000, 0xab);
     writeRTCRegister(source, 0, 10);
-    const save = source.getSaveData(savedAt);
+    const save = source.getSaveData();
 
+    vi.setSystemTime(SAVED_AT_MS + 5_000);
     const restored = createTimerCartridge();
-    expect(restored.loadSaveData(save!, savedAt + 5)).toBe(true);
+    expect(restored.loadSaveData(save!)).toBe(true);
     restored.write(0x4000, 0x00);
 
     expect(restored.read(0xa000)).toBe(0xab);
@@ -68,22 +87,25 @@ describe('cartridge RTC persistence', () => {
     const source = createTimerCartridge();
     writeRTCRegister(source, 0, 10);
     writeRTCRegister(source, 4, 0x40);
-    const save = source.getSaveData(savedAt);
+    const save = source.getSaveData();
 
+    vi.setSystemTime(SAVED_AT_MS + 5_000);
     const restored = createTimerCartridge();
-    expect(restored.loadSaveData(save!, savedAt + 5)).toBe(true);
+    expect(restored.loadSaveData(save!)).toBe(true);
 
     expect(readRTCRegister(restored, 0)).toBe(10);
     expect(readRTCRegister(restored, 4) & 0x40).toBe(0x40);
   });
 
-  test('treats a future save timestamp as zero elapsed time', () => {
+  test('rebases a future save timestamp without advancing', () => {
+    vi.setSystemTime(SAVED_AT_MS + 5_000);
     const source = createTimerCartridge();
     writeRTCRegister(source, 0, 10);
-    const save = source.getSaveData(savedAt);
+    const save = source.getSaveData();
 
+    vi.setSystemTime(SAVED_AT_MS);
     const restored = createTimerCartridge();
-    expect(restored.loadSaveData(save!, savedAt - 5)).toBe(true);
+    expect(restored.loadSaveData(save!)).toBe(true);
 
     expect(readRTCRegister(restored, 0)).toBe(10);
   });
@@ -94,20 +116,20 @@ describe('cartridge RTC persistence', () => {
     const legacyRAM = new Uint8Array(8 * 1024);
     legacyRAM[0] = 0x34;
 
-    expect(cartridge.loadSaveData(legacyRAM, savedAt)).toBe(false);
+    expect(cartridge.loadSaveData(legacyRAM)).toBe(false);
     expect(cartridge.read(0xa000)).toBe(0x56);
   });
 
-  test('rejects malformed versioned data without mutating RAM or RTC', () => {
+  test('rejects malformed data without mutating RAM or RTC', () => {
     const source = createTimerCartridge();
-    const save = source.getSaveData(savedAt)!;
+    const save = source.getSaveData()!;
 
     const target = createTimerCartridge();
     target.write(0x4000, 0x00);
     target.write(0xa000, 0xcd);
     writeRTCRegister(target, 0, 20);
 
-    expect(target.loadSaveData(save.slice(0, -1), savedAt)).toBe(false);
+    expect(target.loadSaveData(save.slice(0, -1))).toBe(false);
     target.write(0x4000, 0x00);
     expect(target.read(0xa000)).toBe(0xcd);
     expect(readRTCRegister(target, 0)).toBe(20);
@@ -115,25 +137,25 @@ describe('cartridge RTC persistence', () => {
 
   test('rejects a save whose RAM length does not match the cartridge', () => {
     const source = createTimerCartridge();
-    const save = source.getSaveData(savedAt)!;
+    const save = source.getSaveData()!;
     const target = createTimerCartridge(
       CARTRIDGE_TYPE.MBC3_TIMER_BATTERY,
       0x00,
     );
 
-    expect(target.loadSaveData(save, savedAt)).toBe(false);
+    expect(target.loadSaveData(save)).toBe(false);
   });
 
   test('rejects a save whose RTC presence does not match the cartridge', () => {
     const source = createMbc1BatteryCartridge();
-    const save = source.getSaveData(savedAt)!;
+    const save = source.getSaveData()!;
 
     const target = createTimerCartridge();
     target.write(0x4000, 0x00);
     target.write(0xa000, 0xcd);
     writeRTCRegister(target, 0, 20);
 
-    expect(target.loadSaveData(save, savedAt)).toBe(false);
+    expect(target.loadSaveData(save)).toBe(false);
     target.write(0x4000, 0x00);
     expect(target.read(0xa000)).toBe(0xcd);
     expect(readRTCRegister(target, 0)).toBe(20);

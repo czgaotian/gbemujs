@@ -1,14 +1,13 @@
-import { expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { GameBoy } from '../../src/emu/emu';
 import { CARTRIDGE_TYPE } from '../../src/types';
 
-const loopController = {
-  now: () => 0,
-  schedule: () => () => {},
-};
+const schedule = () => () => {};
 
 function readRTCSecondsThroughBus(gameBoy: GameBoy): number {
   gameBoy.busWrite(0x0000, 0x0a);
+  gameBoy.busWrite(0x6000, 0x00);
+  gameBoy.busWrite(0x6000, 0x01);
   gameBoy.busWrite(0x4000, 0x08);
   return gameBoy.busRead(0xa000);
 }
@@ -39,60 +38,66 @@ function createTimerRom(): Uint8Array {
   return rom;
 }
 
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(1_700_000_000_000);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 test('pauses when a bus write has no address', () => {
-  const gameBoy = new GameBoy(loopController);
+  const gameBoy = new GameBoy(schedule);
 
   gameBoy.busWrite(undefined as unknown as number, 0x00);
 
   expect(gameBoy.paused).toBe(true);
 });
 
-test('forwards full cartridge saves with UNIX seconds', () => {
-  const savedAt = 1_700_000_000;
-  const source = new GameBoy(loopController);
+test('forwards full cartridge saves using the RTC wall clock', () => {
+  const source = new GameBoy(schedule);
   source.loadROM(createTimerRom());
   source.busWrite(0x0000, 0x0a);
   source.busWrite(0x4000, 0x08);
   source.busWrite(0xa000, 10);
-  const save = source.getSaveData(savedAt);
+  const save = source.getSaveData();
 
-  const restored = new GameBoy(loopController);
+  vi.setSystemTime(1_700_000_002_000);
+  const restored = new GameBoy(schedule);
   restored.loadROM(createTimerRom());
-  expect(restored.loadSaveData(save!, savedAt + 2)).toBe(true);
+  expect(restored.loadSaveData(save!)).toBe(true);
 
   expect(readRTCSecondsThroughBus(restored)).toBe(12);
 });
 
 test('restores a cartridge save before scheduling the emulator loop', () => {
-  const savedAt = 1_700_000_000;
-  const source = new GameBoy(loopController);
+  const source = new GameBoy(schedule);
   source.loadROM(createTimerRom());
   source.busWrite(0x0000, 0x0a);
   source.busWrite(0x4000, 0x08);
   source.busWrite(0xa000, 10);
-  const save = source.getSaveData(savedAt)!;
+  const save = source.getSaveData()!;
+  vi.setSystemTime(1_700_000_003_000);
+
   let secondsWhenScheduled = 0;
-  const restored = new GameBoy({
-    now: () => 0,
-    schedule: () => {
-      secondsWhenScheduled = readRTCSecondsThroughBus(restored);
-      return () => {};
-    },
+  const restored = new GameBoy(() => {
+    secondsWhenScheduled = readRTCSecondsThroughBus(restored);
+    return () => {};
   });
 
-  restored.start(createTimerRom(), save, savedAt + 3);
+  restored.start(createTimerRom(), save);
 
   expect(secondsWhenScheduled).toBe(13);
 });
 
-test('passes runtime milliseconds to the cartridge RTC', () => {
-  const gameBoy = new GameBoy(loopController);
+test('advances the RTC lazily on latch instead of emulator delta time', () => {
+  const gameBoy = new GameBoy(schedule);
   gameBoy.loadROM(createTimerRom());
   gameBoy.paused = true;
 
-  gameBoy.update(2_000);
-  gameBoy.busWrite(0x0000, 0x0a);
-  gameBoy.busWrite(0x4000, 0x08);
+  vi.setSystemTime(1_700_000_002_000);
+  gameBoy.update(1);
 
-  expect(gameBoy.busRead(0xa000)).toBe(2);
+  expect(readRTCSecondsThroughBus(gameBoy)).toBe(2);
 });

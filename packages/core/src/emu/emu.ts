@@ -129,7 +129,6 @@ export class GameBoy {
 
   public update(deltaTime: number) {
     this.joypad.update();
-    this.cartridge.update();
     const frameCycles = TICKS_PER_MS * deltaTime * this.clockSpeedScale;
     const endCycles = this.clockCycles + frameCycles;
     while (this.clockCycles < endCycles && !this.paused) {

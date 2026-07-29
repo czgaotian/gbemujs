@@ -119,14 +119,11 @@ export class Cartridge {
     return encodeCartridgeSave({
       ram: this.mbc.getRamData().slice(),
       rtc: this.rtc?.getState() ?? null,
-      savedTimestamp: this.rtc === null ? null : new Date().valueOf(),
     });
   }
 
   public loadSaveData(data: Uint8Array): boolean {
     if (!this.isCartridgeBattery || !this.mbc) return false;
-
-    const current = new Date().valueOf();
 
     const save = decodeCartridgeSave(data);
     if (
@@ -137,24 +134,9 @@ export class Cartridge {
       return false;
     }
 
-    let restoredRTCState = save.rtc;
-    if (save.rtc !== null) {
-      if (save.savedTimestamp === null) return false;
-      const restoredRTC = new RTC();
-      if (!restoredRTC.setState(save.rtc)) return false;
-      restoredRTC.update(Math.max(0, current - save.savedTimestamp));
-      restoredRTCState = restoredRTC.getState();
-    }
-
-    if (!this.mbc.setRamData(save.ram)) return false;
-    return (
-      restoredRTCState === null || this.rtc?.setState(restoredRTCState) === true
-    );
-  }
-
-  public update(deltaTime: number): void {
-    if (Number.isFinite(deltaTime) && deltaTime > 0)
-      this.rtc?.update(deltaTime);
+    if (save.rtc !== null && this.rtc?.setState(save.rtc) !== true)
+      return false;
+    return this.mbc.setRamData(save.ram);
   }
 
   get isCartridgeBattery(): boolean {

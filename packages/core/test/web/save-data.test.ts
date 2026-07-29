@@ -42,34 +42,20 @@ describe('cartridge save data storage', () => {
 
   test('stores a full cartridge payload under the existing single save key', () => {
     const storage = new MemoryStorage();
-    const savedAt = 1_700_000_000;
+    const getSaveData = vi.fn(
+      () => new Uint8Array([0x47, 0x42, 0x4a, 0x53]),
+    );
     const source = {
-      getSaveData(timestamp: number): Uint8Array | null {
-        expect(timestamp).toBe(savedAt);
-        return new Uint8Array([0x47, 0x42, 0x4a, 0x53]);
-      },
+      getSaveData,
     };
 
-    saveCartridgeData(storage, 'pokemon.gb', source, savedAt);
+    saveCartridgeData(storage, 'pokemon.gb', source);
 
     expect(loadSaveData(storage, 'pokemon.gb')).toEqual(
       new Uint8Array([0x47, 0x42, 0x4a, 0x53]),
     );
+    expect(getSaveData).toHaveBeenCalledOnce();
+    expect(getSaveData).toHaveBeenCalledWith();
     expect(storage.getItem('gbjs:rtc:pokemon.gb')).toBeNull();
-  });
-
-  test('uses whole UNIX seconds by default', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_999_000);
-    let receivedTimestamp = 0;
-    const source = {
-      getSaveData(timestamp: number): Uint8Array {
-        receivedTimestamp = timestamp;
-        return new Uint8Array([0x47]);
-      },
-    };
-
-    saveCartridgeData(new MemoryStorage(), 'pokemon.gb', source);
-
-    expect(receivedTimestamp).toBe(1_700_000_999);
   });
 });

@@ -14,7 +14,6 @@ export abstract class MemoryBankController {
   //! 0-3: RAM banks.
   //! 8-12: RTC registers.
   protected ramBankNumber: number = 0;
-  protected bankingMode: number = 0;
   //! MBC1/MBC2: The cartridge RAM is enabled for reading / writing.
   //! MBC3: The cartridge RAM and cartridge timer enabled.
   protected ramEnabled: boolean = false;
@@ -54,6 +53,8 @@ export class ROMOnly extends MemoryBankController {
 
 // MBC1 实现
 export class MBC1 extends MemoryBankController {
+  protected bankingMode: number = 0;
+
   read(address: number): number {
     if (address < 0x4000) {
       // ROM 0 区

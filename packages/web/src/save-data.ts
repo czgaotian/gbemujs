@@ -4,7 +4,7 @@ export interface SaveStorage {
 }
 
 export interface CartridgeSaveSource {
-  getSaveData(savedTimestamp: number): Uint8Array | null;
+  getSaveData(): Uint8Array | null;
 }
 
 function saveKey(fileName: string): string {
@@ -53,7 +53,6 @@ export function saveCartridgeData(
   storage: SaveStorage,
   fileName: string,
   source: CartridgeSaveSource,
-  savedUnixSeconds = Math.floor(Date.now() / 1000),
 ): void {
-  saveSaveData(storage, fileName, source.getSaveData(savedUnixSeconds));
+  saveSaveData(storage, fileName, source.getSaveData());
 }
