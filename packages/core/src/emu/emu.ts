@@ -43,7 +43,7 @@ export class GameBoy {
     this.cartridge = new Cartridge();
     this.cpu = new CPU(this);
     this.ppu = new PPU(this);
-    this.apu = new APU();
+    this.apu = new APU(this);
     this.joypad = new Joypad(this);
     this.timer = new Timer(this);
     this.serial = new Serial(this);
@@ -65,6 +65,7 @@ export class GameBoy {
     this.clockCycles = 0;
     this.cpu.init();
     this.ppu.init();
+    this.apu.init();
     this.joypad.init();
     this.timer.init();
     this.serial.init();
@@ -160,6 +161,7 @@ export class GameBoy {
         this.serial.tick();
       }
       this.ppu.tick();
+      this.apu.tick();
     }
   }
 

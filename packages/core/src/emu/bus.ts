@@ -60,6 +60,10 @@ export function busRead(this: GameBoy, address: number): number {
     // IF
     return (this.intFlags & 0xff) | 0xe0;
   }
+  if (address >= 0xff10 && address <= 0xff3f) {
+    // APU
+    return this.apu.read(address) & 0xff;
+  }
   if (address >= 0xff40 && address <= 0xff4b) {
     // ppu
     return this.ppu.read(address) & 0xff;
@@ -137,6 +141,11 @@ export function busWrite(this: GameBoy, address: number, value: number): void {
   if (address === 0xff0f) {
     // IF
     this.intFlags = value & 0x1f;
+    return;
+  }
+  if (address >= 0xff10 && address <= 0xff3f) {
+    // APU
+    this.apu.write(address, value);
     return;
   }
   if (address >= 0xff40 && address <= 0xff4b) {
