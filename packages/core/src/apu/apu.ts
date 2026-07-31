@@ -42,6 +42,8 @@ export class APU {
   channel1Volume = 0;
   channel1PeriodCounter = 0;
   channel1OutputSample = 0;
+  channel1SweepIterationCounter = 0;
+  channel1SweepIterationPace = 0;
 
   constructor(emulator: GameBoy) {
     this.emulator = emulator;
@@ -172,6 +174,16 @@ export class APU {
   get channel1Period() {
     // NR13 + NR14 bits 0-2
     return this._registers[0x03] + ((this._registers[0x04] & 0x07) << 8);
+  }
+
+  get channel1SweepPace() {
+    // NR10 bits 4-6
+    return (this._registers[0x00] & 0x70) >> 4;
+  }
+
+  get channel1SweepSubtraction() {
+    // NR10 bit 3
+    return bitTest(this._registers[0x00], 3);
   }
 
   enableChannel1() {
