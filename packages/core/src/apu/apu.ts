@@ -1,12 +1,6 @@
-import {
-  PULSE_WAVE_0,
-  PULSE_WAVE_1,
-  PULSE_WAVE_2,
-  PULSE_WAVE_3,
-} from '../constants/apu';
 import { GameBoy } from '../emu/emu';
-import { bitTest, bitSet } from '../utils';
-import { dac } from '../utils/apu';
+import { bitTest } from '../utils';
+import { Channel1 } from './channel1';
 
 export class APU {
   public emulator: GameBoy;
@@ -37,16 +31,11 @@ export class APU {
   // DIV-APU counter
   private divApu = 0;
 
-  // channel 1 state
-  channel1SampleIndex = 0;
-  channel1Volume = 0;
-  channel1PeriodCounter = 0;
-  channel1OutputSample = 0;
-  channel1SweepIterationCounter = 0;
-  channel1SweepIterationPace = 0;
+  channel1: Channel1;
 
   constructor(emulator: GameBoy) {
     this.emulator = emulator;
+    this.channel1 = new Channel1(this);
   }
 
   init() {
@@ -59,8 +48,8 @@ export class APU {
     this.tickDivApu();
     // APU 1048576Hz
     if (this.emulator.clockCycles % 4 === 0) {
-      if (this.channel1Enabled) {
-        this.tickChannel1();
+      if (this.channel1.enabled) {
+        this.channel1.tick();
       }
     }
   }
@@ -74,15 +63,15 @@ export class APU {
       this.divApu++;
       if (this.divApu % 2 === 0) {
         // Length tick 256Hz
-        this.tickChannel1Length();
+        this.channel1.tickLength();
       }
       if (this.divApu % 4 === 0) {
         // Sweep tick 128Hz
-        this.tickChannel1Sweep();
+        this.channel1.tickSweep();
       }
       if (this.divApu % 8 === 0) {
         // Envelope tick 64Hz
-        this.tickChannel1Envelope();
+        this.channel1.tickEnvelope();
       }
     }
     this.lastDiv = div;
@@ -153,85 +142,11 @@ export class APU {
     return bitTest(this._registers[0x16], 7);
   }
 
-  get channel1Enabled(): boolean {
-    // NR52
-    return bitTest(this._registers[0x16], 0);
+  getRegister(index: number) {
+    return this._registers[index];
   }
 
-  get channel1DacOn(): boolean {
-    // NR12 bits 3-7 are all 0, ch1 dac off
-    return (this._registers[0x12] & 0xf8) !== 0;
+  setRegister(index: number, value: number) {
+    this._registers[index] = value;
   }
-
-  get channel1WaveType() {
-    // NR11 bits 6-7
-    return (this._registers[0x01] & 0xc0) >> 6;
-  }
-  get channel1InitializeVolume() {
-    // NR12 bits 4-7
-    return (this._registers[0x02] & 0xf0) >> 4;
-  }
-  get channel1Period() {
-    // NR13 + NR14 bits 0-2
-    return this._registers[0x03] + ((this._registers[0x04] & 0x07) << 8);
-  }
-
-  get channel1SweepPace() {
-    // NR10 bits 4-6
-    return (this._registers[0x00] & 0x70) >> 4;
-  }
-
-  get channel1SweepSubtraction() {
-    // NR10 bit 3
-    return bitTest(this._registers[0x00], 3);
-  }
-
-  enableChannel1() {
-    // NR52
-    this._registers[0x16] = bitSet(this._registers[0x16], 0, true);
-
-    this.channel1SampleIndex = 0;
-    this.channel1Volume = this.channel1InitializeVolume;
-    this.channel1PeriodCounter = this.channel1Period;
-  }
-
-  disableChannel1() {
-    this._registers[0x16] = bitSet(this._registers[0x16], 0, false);
-  }
-
-  tickChannel1() {
-    if (!this.channel1DacOn) {
-      this.disableChannel1();
-      return;
-    }
-    this.channel1PeriodCounter++;
-    // greater than or equal to 2048
-    if (this.channel1PeriodCounter >= 0x800) {
-      // advance next sample
-      this.channel1SampleIndex = (this.channel1SampleIndex + 1) % 8;
-      this.channel1PeriodCounter = this.channel1Period;
-    }
-    let sample = 0;
-    switch (this.channel1WaveType) {
-      case 0:
-        sample = PULSE_WAVE_0[this.channel1SampleIndex];
-        break;
-      case 1:
-        sample = PULSE_WAVE_1[this.channel1SampleIndex];
-        break;
-      case 2:
-        sample = PULSE_WAVE_2[this.channel1SampleIndex];
-        break;
-      case 3:
-        sample = PULSE_WAVE_3[this.channel1SampleIndex];
-        break;
-      default:
-        break;
-    }
-    this.channel1OutputSample = dac(sample * this.channel1Volume);
-  }
-
-  tickChannel1Length() {}
-  tickChannel1Sweep() {}
-  tickChannel1Envelope() {}
 }
