@@ -1,22 +1,34 @@
+import {
+  PULSE_WAVE_0,
+  PULSE_WAVE_1,
+  PULSE_WAVE_2,
+  PULSE_WAVE_3,
+} from '../constants/apu';
 import { GameBoy } from '../emu/emu';
-import { bitTest } from '../utils';
+import { bitTest, bitSet } from '../utils';
+import { dac } from '../utils/apu';
 
 export class APU {
   public emulator: GameBoy;
   /**
    * channel 1
    *
-   * 0xFF10 NR10 - Channel 1 Sweep register (R/W)
-   * 0xFF11 NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
-   * 0xFF12 NR12 - Channel 1 Volume Envelope (R/W)
-   * 0xFF13 NR13 - Channel 1 Frequency lo (W)
-   * 0xFF14 NR14 - Channel 1 Frequency hi (R/W)
+   * 0x00 0xFF10 NR10 - Channel 1 Sweep register (R/W)
+   * 0x01 0xFF11 NR11 - Channel 1 Sound length/Wave pattern duty (R/W)
+   * 0x02 0xFF12 NR12 - Channel 1 Volume Envelope (R/W)
+   * 0x03 0xFF13 NR13 - Channel 1 Frequency lo (W)
+   * 0x04 0xFF14 NR14 - Channel 1 Frequency hi (R/W)
    *
    * Master control registers
    *
-   * 0xFF24 NR50 - Channel control / ON-OFF / Volume (R/W)
-   * 0xFF25 NR51 - Selection of Sound output terminal (R/W)
-   * 0xFF26 NR52 - Sound on/off (R/W)
+   * 0x14 0xFF24 NR50 - Channel control / ON-OFF / Volume (R/W)
+   * 0x15 0xFF25 NR51 - Selection of Sound output terminal (R/W)
+   * 0x16 0xFF26 NR52 - Sound on/off (R/W)
+   *
+   *
+   *
+   *
+   *
    */
   private _registers = new Uint8Array(0x30);
 
@@ -24,6 +36,12 @@ export class APU {
   private lastDiv = 0;
   // DIV-APU counter
   private divApu = 0;
+
+  // channel 1 state
+  channel1SampleIndex = 0;
+  channel1Volume = 0;
+  channel1PeriodCounter = 0;
+  channel1OutputSample = 0;
 
   constructor(emulator: GameBoy) {
     this.emulator = emulator;
@@ -35,7 +53,14 @@ export class APU {
 
   tick() {
     if (!this.isEnabled) return;
+    // DIV-APU 4194304Hz
     this.tickDivApu();
+    // APU 1048576Hz
+    if (this.emulator.clockCycles % 4 === 0) {
+      if (this.channel1Enabled) {
+        this.tickChannel1();
+      }
+    }
   }
 
   tickDivApu() {
@@ -60,10 +85,6 @@ export class APU {
     }
     this.lastDiv = div;
   }
-
-  tickChannel1Length() {}
-  tickChannel1Sweep() {}
-  tickChannel1Envelope() {}
 
   read(address: number) {
     // channel 1
@@ -126,7 +147,79 @@ export class APU {
   }
 
   get isEnabled(): boolean {
-    // NR52 - Sound on/off (R/W)
+    // NR52
     return bitTest(this._registers[0x16], 7);
   }
+
+  get channel1Enabled(): boolean {
+    // NR52
+    return bitTest(this._registers[0x16], 0);
+  }
+
+  get channel1DacOn(): boolean {
+    // NR12 bits 3-7 are all 0, ch1 dac off
+    return (this._registers[0x12] & 0xf8) !== 0;
+  }
+
+  get channel1WaveType() {
+    // NR11 bits 6-7
+    return (this._registers[0x01] & 0xc0) >> 6;
+  }
+  get channel1InitializeVolume() {
+    // NR12 bits 4-7
+    return (this._registers[0x02] & 0xf0) >> 4;
+  }
+  get channel1Period() {
+    // NR13 + NR14 bits 0-2
+    return this._registers[0x03] + ((this._registers[0x04] & 0x07) << 8);
+  }
+
+  enableChannel1() {
+    // NR52
+    this._registers[0x16] = bitSet(this._registers[0x16], 0, true);
+
+    this.channel1SampleIndex = 0;
+    this.channel1Volume = this.channel1InitializeVolume;
+    this.channel1PeriodCounter = this.channel1Period;
+  }
+
+  disableChannel1() {
+    this._registers[0x16] = bitSet(this._registers[0x16], 0, false);
+  }
+
+  tickChannel1() {
+    if (!this.channel1DacOn) {
+      this.disableChannel1();
+      return;
+    }
+    this.channel1PeriodCounter++;
+    // greater than or equal to 2048
+    if (this.channel1PeriodCounter >= 0x800) {
+      // advance next sample
+      this.channel1SampleIndex = (this.channel1SampleIndex + 1) % 8;
+      this.channel1PeriodCounter = this.channel1Period;
+    }
+    let sample = 0;
+    switch (this.channel1WaveType) {
+      case 0:
+        sample = PULSE_WAVE_0[this.channel1SampleIndex];
+        break;
+      case 1:
+        sample = PULSE_WAVE_1[this.channel1SampleIndex];
+        break;
+      case 2:
+        sample = PULSE_WAVE_2[this.channel1SampleIndex];
+        break;
+      case 3:
+        sample = PULSE_WAVE_3[this.channel1SampleIndex];
+        break;
+      default:
+        break;
+    }
+    this.channel1OutputSample = dac(sample * this.channel1Volume);
+  }
+
+  tickChannel1Length() {}
+  tickChannel1Sweep() {}
+  tickChannel1Envelope() {}
 }
