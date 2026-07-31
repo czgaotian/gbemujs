@@ -20,6 +20,11 @@ export class APU {
    */
   private _registers = new Uint8Array(0x30);
 
+  // stores the timer DIV value in last tick to detect div value change.
+  private lastDiv = 0;
+  // DIV-APU counter
+  private divApu = 0;
+
   constructor(emulator: GameBoy) {
     this.emulator = emulator;
   }
@@ -30,7 +35,35 @@ export class APU {
 
   tick() {
     if (!this.isEnabled) return;
+    this.tickDivApu();
   }
+
+  tickDivApu() {
+    const div = this.emulator.timer.div;
+
+    // when div bit 4 toggles from 0 to 1, the APU will tick.
+    if (bitTest(div, 4) && !bitTest(this.lastDiv, 4)) {
+      // 512Hz
+      this.divApu++;
+      if (this.divApu % 2 === 0) {
+        // Length tick 256Hz
+        this.tickChannel1Length();
+      }
+      if (this.divApu % 4 === 0) {
+        // Sweep tick 128Hz
+        this.tickChannel1Sweep();
+      }
+      if (this.divApu % 8 === 0) {
+        // Envelope tick 64Hz
+        this.tickChannel1Envelope();
+      }
+    }
+    this.lastDiv = div;
+  }
+
+  tickChannel1Length() {}
+  tickChannel1Sweep() {}
+  tickChannel1Envelope() {}
 
   read(address: number) {
     // channel 1
