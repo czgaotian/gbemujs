@@ -31,6 +31,26 @@ export class Channel1 {
     return bitTest(this.apu.getRegister(0x16), 0);
   }
 
+  get leftEnabled(): boolean {
+    // NR51 bit 4
+    return bitTest(this.apu.getRegister(0x15), 4);
+  }
+
+  get rightEnabled(): boolean {
+    // NR51 bit 0
+    return bitTest(this.apu.getRegister(0x15), 0);
+  }
+
+  get leftVolume(): number {
+    // NR50 bits 4-6
+    return (this.apu.getRegister(0x14) & 0x70) >> 4;
+  }
+
+  get rightVolume(): number {
+    // NR50 bits 0-2
+    return this.apu.getRegister(0x14) & 0x07;
+  }
+
   get lengthTimerEnabled(): boolean {
     // NR14 bit 6
     return bitTest(this.apu.getRegister(0x04), 6);
@@ -38,7 +58,7 @@ export class Channel1 {
 
   get dacOn(): boolean {
     // NR12 bits 3-7 are all 0, ch1 dac off
-    return (this.apu.getRegister(0x12) & 0xf8) !== 0;
+    return (this.apu.getRegister(0x02) & 0xf8) !== 0;
   }
 
   get waveType() {

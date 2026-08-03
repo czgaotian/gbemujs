@@ -51,6 +51,27 @@ export class APU {
       if (this.channel1.enabled) {
         this.channel1.tick();
       }
+
+      // Mixer
+      // Output volume range in [-4, 4].
+      let sampleLeft = 0;
+      let sampleRight = 0;
+      if (this.channel1.dacOn && this.channel1.leftEnabled) {
+        sampleLeft += this.channel1.outputSample;
+      }
+      if (this.channel1.dacOn && this.channel1.rightEnabled) {
+        sampleRight += this.channel1.outputSample;
+      }
+
+      // from range [-4, 4] to range [-1, 1]
+      sampleLeft /= 4;
+      sampleRight /= 4;
+
+      // main volume range 0 - 7
+      sampleLeft *= this.channel1.leftVolume / 7;
+      sampleRight *= this.channel1.rightVolume / 7;
+
+      this.setAudioSample(Math.fround(sampleLeft), Math.fround(sampleRight));
     }
   }
 
@@ -157,4 +178,6 @@ export class APU {
   setRegister(index: number, value: number) {
     this._registers[index] = value;
   }
+
+  setAudioSample(left: number, right: number) {}
 }
