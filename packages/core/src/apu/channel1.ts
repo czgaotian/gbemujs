@@ -13,6 +13,8 @@ export class Channel1 {
   volume = 0;
   periodCounter = 0;
   outputSample = 0;
+  // records time of current iteration
+  // when equal to sweepPace, sweep will be triggered
   sweepIterationCounter = 0;
   sweepIterationPace = 0;
 
@@ -41,8 +43,7 @@ export class Channel1 {
   get period() {
     // NR13 + NR14 bits 0-2
     return (
-      this.apu.getRegister(0x03) +
-      ((this.apu.getRegister(0x04) & 0x07) << 8)
+      this.apu.getRegister(0x03) + ((this.apu.getRegister(0x04) & 0x07) << 8)
     );
   }
 
@@ -56,23 +57,35 @@ export class Channel1 {
     return bitTest(this.apu.getRegister(0x00), 3);
   }
 
+  get sweepIndividualStep() {
+    // NR10 bits 0-2
+    return this.apu.getRegister(0x00) & 0x07;
+  }
+
+  setPeriod(value: number) {
+    // nr13
+    this.apu.setRegister(0x03, value & 0xff);
+    // nr14
+    this.apu.setRegister(
+      0x04,
+      (this.apu.getRegister(0x04) & 0xf8) + ((value >> 8) & 0x07),
+    );
+  }
+
   enable() {
     // NR52
-    this.apu.setRegister(
-      0x16,
-      bitSet(this.apu.getRegister(0x16), 0, true),
-    );
+    this.apu.setRegister(0x16, bitSet(this.apu.getRegister(0x16), 0, true));
 
     this.sampleIndex = 0;
     this.volume = this.initializeVolume;
     this.periodCounter = this.period;
+    this.volume = this.initializeVolume;
+    this.sweepIterationCounter = 0;
+    this.sweepIterationPace = this.sweepPace;
   }
 
   disable() {
-    this.apu.setRegister(
-      0x16,
-      bitSet(this.apu.getRegister(0x16), 0, false),
-    );
+    this.apu.setRegister(0x16, bitSet(this.apu.getRegister(0x16), 0, false));
   }
 
   tick() {
@@ -108,6 +121,31 @@ export class Channel1 {
   }
 
   tickLength() {}
-  tickSweep() {}
+
+  tickSweep() {
+    if (this.enabled && this.sweepPace) {
+      this.sweepIterationCounter++;
+      if (this.sweepIterationCounter === this.sweepIterationPace) {
+        let period = this.period;
+        let step = this.sweepIndividualStep;
+
+        if (this.sweepSubtraction) {
+          period -= period / (1 << step);
+        } else {
+          period += period / (1 << step);
+        }
+
+        if (period > 0x07ff || period <= 0) {
+          this.disable();
+        } else {
+          this.setPeriod(period);
+        }
+
+        this.sweepIterationCounter = 0;
+        this.sweepIterationPace = this.sweepPace;
+      }
+    }
+  }
+
   tickEnvelope() {}
 }

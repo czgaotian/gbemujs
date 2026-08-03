@@ -108,6 +108,14 @@ export class APU {
           return;
         }
       } else {
+        if (address == 0xff10) {
+          // 在下一次设置为非0值时开始新一次的迭代
+          if ((this._registers[0x00] & 0x70) === 0 && (value & 0x70) !== 0) {
+            // restart sweep iteration
+            this.channel1.sweepIterationCounter = 0;
+            this.channel1.sweepIterationPace = (value & 0x70) >> 4;
+          }
+        }
         if (address === 0xff14 && bitTest(value, 7)) {
           value &= 0x7f;
         }
