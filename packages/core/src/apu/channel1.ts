@@ -17,6 +17,10 @@ export class Channel1 {
   // when equal to sweepPace, sweep will be triggered
   sweepIterationCounter = 0;
   sweepIterationPace = 0;
+  // Envelope states
+  envelopeIterationIncrease = false;
+  envelopeIterationCounter = 0;
+  envelopeIterationPace = 0;
 
   constructor(private apu: APU) {}
 
@@ -35,7 +39,7 @@ export class Channel1 {
     return (this.apu.getRegister(0x01) & 0xc0) >> 6;
   }
 
-  get initializeVolume() {
+  get initialVolume() {
     // NR12 bits 4-7
     return (this.apu.getRegister(0x02) & 0xf0) >> 4;
   }
@@ -62,6 +66,16 @@ export class Channel1 {
     return this.apu.getRegister(0x00) & 0x07;
   }
 
+  get envelopePace() {
+    // NR12 bits 0-2
+    return this.apu.getRegister(0x02) & 0x07;
+  }
+
+  get envelopeIncrease() {
+    // NR12 bit 3
+    return bitTest(this.apu.getRegister(0x02), 3);
+  }
+
   setPeriod(value: number) {
     // nr13
     this.apu.setRegister(0x03, value & 0xff);
@@ -77,11 +91,13 @@ export class Channel1 {
     this.apu.setRegister(0x16, bitSet(this.apu.getRegister(0x16), 0, true));
 
     this.sampleIndex = 0;
-    this.volume = this.initializeVolume;
+    this.volume = this.initialVolume;
     this.periodCounter = this.period;
-    this.volume = this.initializeVolume;
     this.sweepIterationCounter = 0;
     this.sweepIterationPace = this.sweepPace;
+    this.envelopeIterationIncrease = this.envelopeIncrease;
+    this.envelopeIterationPace = this.envelopePace;
+    this.envelopeIterationCounter = 0;
   }
 
   disable() {
@@ -147,5 +163,21 @@ export class Channel1 {
     }
   }
 
-  tickEnvelope() {}
+  tickEnvelope() {
+    if (this.enabled && this.envelopeIterationPace) {
+      this.envelopeIterationCounter++;
+      if (this.envelopeIterationCounter >= this.envelopeIterationPace) {
+        if (this.envelopeIterationIncrease) {
+          if (this.volume < 15) {
+            this.volume++;
+          }
+        } else {
+          if (this.volume > 0) {
+            this.volume--;
+          }
+        }
+      }
+      this.envelopeIterationCounter = 0;
+    }
+  }
 }
