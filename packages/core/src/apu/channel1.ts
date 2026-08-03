@@ -21,12 +21,19 @@ export class Channel1 {
   envelopeIterationIncrease = false;
   envelopeIterationCounter = 0;
   envelopeIterationPace = 0;
+  // length timer
+  lengthTimer = 0;
 
   constructor(private apu: APU) {}
 
   get enabled(): boolean {
     // NR52
     return bitTest(this.apu.getRegister(0x16), 0);
+  }
+
+  get lengthTimerEnabled(): boolean {
+    // NR14 bit 6
+    return bitTest(this.apu.getRegister(0x04), 6);
   }
 
   get dacOn(): boolean {
@@ -76,6 +83,11 @@ export class Channel1 {
     return bitTest(this.apu.getRegister(0x02), 3);
   }
 
+  get initialLengthTimer() {
+    // NR11 bits 0-5
+    return this.apu.getRegister(0x01) & 0x3f;
+  }
+
   setPeriod(value: number) {
     // nr13
     this.apu.setRegister(0x03, value & 0xff);
@@ -98,6 +110,7 @@ export class Channel1 {
     this.envelopeIterationIncrease = this.envelopeIncrease;
     this.envelopeIterationPace = this.envelopePace;
     this.envelopeIterationCounter = 0;
+    this.lengthTimer = this.initialLengthTimer;
   }
 
   disable() {
@@ -136,7 +149,14 @@ export class Channel1 {
     this.outputSample = dac(sample * this.volume);
   }
 
-  tickLength() {}
+  tickLength() {
+    if (this.enabled && this.lengthTimerEnabled) {
+      this.lengthTimer++;
+      if (this.lengthTimer >= 64) {
+        this.disable();
+      }
+    }
+  }
 
   tickSweep() {
     if (this.enabled && this.sweepPace) {
